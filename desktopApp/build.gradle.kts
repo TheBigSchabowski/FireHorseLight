@@ -46,6 +46,13 @@ compose.desktop {
             macOS {
                 bundleID = "de.privat.firehorselight"
                 iconFile.set(project.file("icon.icns"))
+                // Without it macOS does not let the app record: Space held records a move to say.
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>NSMicrophoneUsageDescription</key>
+                        <string>FireHorse Light nimmt auf, solange du die Leertaste hältst, damit du Züge ansagen kannst.</string>
+                    """.trimIndent()
+                }
             }
             linux {
                 iconFile.set(project.file("icon.png"))

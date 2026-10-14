@@ -17,13 +17,11 @@ data class Settings(
      * The shortcut (a `Command` name, "" for none) of each zone, [tapCols] per row, read like a
      * book – top left, top right, middle left, …
      */
-    val tapZones: List<String> = listOf("SHORTCUTS", "DRAW", "NEW_VARIANT", "SETTINGS", "PASTE_PGN", "PASTE_FEN"),
+    val tapZones: List<String> = listOf("SHORTCUTS", "BLIND", "NEW_VARIANT", "SETTINGS", "PASTE_PGN", "PASTE_FEN"),
     /** The letter that goes with Ctrl to start a shortcut on the keyboard. */
     val prefixKey: String = "b",
     /** Keys changed from their default, by `Command` name; the rest keep theirs. */
     val keys: Map<String, String> = emptyMap(),
-    /** Keys while drawing changed from their default, by `DrawKey` name. */
-    val drawKeys: Map<String, String> = emptyMap(),
     /** Time between two moves when a variant is played. */
     val playDelayMs: Int = 1500,
     /** The player starts over after the last move. */
@@ -34,7 +32,7 @@ data class Settings(
     val horseLeft: Boolean = false,
     /** Name of a `BoardTheme`. */
     val boardTheme: String = "classic",
-    /** The color of each of the six pens to draw with, as [PenColor.saved]: "GREEN" or "#7FFFD4 Aquamarin". */
+    /** The pen colors of drawings that came from FireHorse, for the PGN export ([PenColor.saved]). */
     val pens: List<String> = Ink.DEFAULT.map { it.saved },
     /** A personal lichess API token, for the opening database; lichess answers nothing without one. Never exported. */
     val lichessToken: String = "",
@@ -48,6 +46,10 @@ data class Settings(
     val opponentRank: Int = 1,
     /** The search field on the home screen is there (Ctrl+B s shows and hides it). */
     val showSearch: Boolean = true,
+    /** Blind (Ctrl+B m): while practising the board is hidden, and the other side's moves are played and said out loud. */
+    val blind: Boolean = false,
+    /** The moves of the other side are said out loud, also when the board is shown. */
+    val speakMoves: Boolean = true,
 ) {
     /** The engine that analyses, if any is set up. */
     val chosenEngine: EngineEntry? get() = engines.firstOrNull { it.path == engine } ?: engines.firstOrNull()

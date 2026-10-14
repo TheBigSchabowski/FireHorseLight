@@ -2,37 +2,42 @@ package repertoire.core
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.util.Locale
 
-/** Wird in `MainActivity.onCreate` gesetzt, damit Android TTS ohne Zusatz-Abhängigkeiten läuft. */
+/** Set in `MainActivity.onCreate`, before the first [createSpeaker]. */
 var appContext: Context? = null
 
-class AndroidSpeaker : Speaker {
-    private var tts: TextToSpeech? = null
+/** The phone's text-to-speech in US English. Things said before it is ready wait for it. */
+class AndroidSpeaker(context: Context) : Speaker {
     private var ready = false
-
-    init {
-        appContext?.let { ctx ->
-            tts = TextToSpeech(ctx) { status ->
-                if (status == TextToSpeech.SUCCESS) {
-                    tts?.language = Locale.US
-                    ready = true
-                }
+    private val waiting = mutableListOf<String>()
+    private val tts: TextToSpeech = TextToSpeech(context.applicationContext) { status ->
+        synchronized(waiting) {
+            ready = status == TextToSpeech.SUCCESS
+            if (ready) {
+                tts.language = Locale.US
+                waiting.forEach(::speak)
             }
+            waiting.clear()
         }
     }
 
-    override suspend fun speakEnglish(text: String): Unit = withContext(Dispatchers.Main) {
-        if (ready) {
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "fh_move")
-        }
+    private fun speak(text: String) {
+        tts.speak(text, TextToSpeech.QUEUE_ADD, null, text.hashCode().toString())
     }
 
-    override fun close() {
-        tts?.shutdown()
+    override fun say(text: String) {
+        synchronized(waiting) { if (ready) speak(text) else waiting += text }
+    }
+
+    override fun stop() {
+        synchronized(waiting) { waiting.clear() }
+        tts.stop()
     }
 }
 
-actual fun createSpeaker(): Speaker = AndroidSpeaker()
+/** Silent when there is no context yet, e.g. in tests. */
+actual fun createSpeaker(): Speaker = appContext?.let(::AndroidSpeaker) ?: object : Speaker {
+    override fun say(text: String) {}
+    override fun stop() {}
+}

@@ -14,7 +14,7 @@ data class Variant(
     val moves: List<String>,
     /** Board orientation while training this variant. */
     val playWhite: Boolean = true,
-    /** Notes shown after the position is reached; "((Nb6))" marks a gap to fill in, see [Cloze]. */
+    /** Notes from FireHorse; FireHorse Light keeps them but does not show them. */
     val theory: String = "",
     /**
      * Where the line begins. Normally the start of a game; a variant imported from a FEN begins at

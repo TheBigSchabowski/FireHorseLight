@@ -1,25 +1,23 @@
 # FireHorseLight
 
-Blindschach mit Stimme, für macOS, Linux und Android. Ein Ableger von
-[FireHorse](https://github.com/TheBigSchabowski/FireHorse).
+Eröffnungen blind lernen, mit Stimme – für macOS, Linux und Android. Die leichte Ausgabe von
+[FireHorse](https://github.com/TheBigSchabowski/FireHorse): dieselben Varianten, Puzzle, Spaced Repetition,
+Playlists, Archiv, Suche, Strg+B-Kürzel, Engine und lichess-Datenbank – ohne Zeichnen, Theorie-Lücken und
+Eröffnungsnotizen, dafür mit Blind-Üben und Sprache.
 
-Du sagst deinen Zug auf Englisch („e4“, „knight f3“, „bishop c4“, „c takes d4“, „castle kingside“),
-die App antwortet und spricht ihren Zug laut aus. Das Brett bleibt verdeckt, ein Doppeltipp (oder „board“)
-blendet es ein und wieder aus.
+## Blind und Stimme
 
-- **🎯 Blind üben:** Die App nimmt deine Varianten der Reihe nach (zufällig, alle oder eine Eröffnung) und
-  zeigt nur ihren Namen. Du spielst deine Seite aus dem Kopf, die App die andere. Ein Zug, der nicht in
-  der Variante steht, wird nicht gespielt: „Wrong“ bzw. „Other variant“, wenn er zu einer anderen gespeicherten
-  Variante gehört. Zugumstellungen aus deiner Sammlung zählen. Am Ende wird das Brett aufgedeckt.
-  Kommandos: `hint` (sagt den richtigen Zug), `next`, `restart`, `repeat`, `board`.
-- **♟ Frei spielen:** Die App antwortet aus deinen Varianten oder aus der lichess-Datenbank. `undo` nimmt
-  deinen Zug zurück, „Als Variante speichern“ übernimmt die Partie in den Editor.
-- **📚 Meine Varianten:** Varianten anlegen (Züge auf dem Brett spielen oder ansagen, Eröffnung, Name und
-  Seite eintragen), bearbeiten, löschen und einzeln oder je Eröffnung blind üben.
-
-Die Spracheingabe kommt von einem Diktierprogramm deiner Wahl (z. B. Voxtype/Whisper, die Diktierfunktion
-von macOS oder die Android-Tastatur), das den Text ins Eingabefeld schreibt. Typische Hörfehler wie
-„night c3“ oder „bishop sea for“ werden verstanden.
+- **Blind** (`Strg+B m` oder „Blind“ auf der Startseite) verdeckt das Brett beim Üben und im Editor. Die App spielt
+  die Gegenseite deiner Variante und sagt ihre Züge auf Englisch an; du spielst nur deine Farbe, aus dem Kopf.
+  Falsch: „No“ und der richtige Zug. Am Ende wird das Brett aufgedeckt. `Strg+B n` oder Doppelklick deckt zwischendurch auf.
+- **Züge sagen:** Leertaste halten, „knight f3“ sagen, loslassen – erkannt mit [voxtype](https://github.com/peteonrails/voxtype)
+  (Whisper), auch ohne Blind. Kurz tippen bleibt „Gut“ / „Weiter“. Das Feld unter dem verdeckten Brett nimmt Züge auch
+  getippt oder diktiert (voxtypes eigene Taste, am Handy das Mikrofon der Tastatur).
+- **Kommandos:** `board`, `repeat`, `hint`, `next`, `restart`, `undo`.
+- **Varianten blind anlegen:** im Editor mit Blind sagst du die Züge, die App sagt sie zurück. Abspielen sagt die Züge an.
+- **Spracherkennung testen** und **Stimmprobe aufnehmen** unter Einstellungen → „Blind und Stimme“. Der Test speichert
+  jede Aufnahme mit dem, was voxtype daraus gemacht hat (`Spracherkennung/` im Datenordner); die Stimmprobe
+  (`Stimme/referenz.wav` + Text) ist für Qwen3-TTS, damit die Ansagen in deiner eigenen Stimme kommen.
 
 ## Download
 
@@ -32,49 +30,31 @@ Unter [Releases](../../releases/latest):
 | Linux | `FireHorseLight_<version>_linux-amd64.tar.gz` | jede andere Distribution, ohne Installation |
 | Android | `FireHorseLight_<version>_android.apk` | Android 8.0+ |
 
-**macOS:** DMG öffnen und die App in „Programme“ ziehen. Die App ist nicht mit einem
-Apple-Entwicklerzertifikat signiert; beim ersten Start daher Rechtsklick → „Öffnen“.
+**macOS:** DMG öffnen, die App in „Programme“ ziehen; nicht mit einem Apple-Zertifikat signiert, beim ersten Start
+daher Rechtsklick → „Öffnen“. Für die Leertaste: `brew install --cask voxtype` und beim ersten Sprechen das Mikrofon erlauben.
 
-**Linux:** `sudo apt install ./FireHorseLight_<version>_linux-amd64.deb` installiert die App samt Java
-und der Stimme (`espeak-ng`) und legt „FireHorseLight“ ins Anwendungsmenü (unter „Spiele“); gestartet wird
-auch mit `/opt/firehorselight/bin/FireHorseLight`. Ältere Systeme (Ubuntu 22.04, Debian 12) nehmen das tar.gz:
-entpacken, `FireHorseLight/bin/FireHorseLight` starten. Damit die App spricht, muss dann `espeak-ng`
-installiert sein. Gebraucht wird eine Desktop-Umgebung mit X11 oder Wayland (XWayland) und OpenGL.
+**Linux:** `sudo apt install ./FireHorseLight_<version>_linux-amd64.deb` installiert die App samt Java und Stimme
+(`espeak-ng`). Ältere Systeme (Ubuntu 22.04, Debian 12) nehmen das tar.gz: entpacken, `FireHorseLight/bin/FireHorseLight`
+starten; für die Stimme `espeak-ng` installieren. Für die Leertaste voxtype installieren.
 
-**Android:** APK herunterladen und installieren („Unbekannte Apps installieren“ erlauben).
+**Android:** APK installieren („Unbekannte Apps installieren“ erlauben). Züge sagst du über das Mikrofon der Tastatur.
 
-## Varianten
+## Daten
 
-FireHorseLight liest denselben Datenordner wie FireHorse: am Mac `~/Documents/EroeffnungsPuzzle`,
-unter Linux den Dokumente-Ordner (`~/Dokumente/EroeffnungsPuzzle` bzw. `~/Documents/...`, maßgeblich ist
-`XDG_DOCUMENTS_DIR`). Deine Varianten sind also sofort da. Auf Android, oder um eine andere Sammlung zu laden,
-gibt es „FireHorse JSON laden“ für einen Export aus FireHorse.
-
-Für „Lichess Masters“ und „Lichess Players“ braucht es den lichess-API-Schlüssel, den du in FireHorse
-eingetragen hast. Ohne ihn antwortet die App aus deinen eigenen Varianten.
-
-## Eigene Stimme (optional)
-
-Startest du die App aus dem Projektordner (`./gradlew :desktopApp:run`), spricht sie über
-`tools/qwen_tts_bridge.py`. Ist `QWEN_TTS_URL` gesetzt und liegt eine Stimmprobe unter `~/my_voice.wav`
-(oder `FIREHORSE_VOICE_SAMPLE`), klingt das mit deiner eigenen Stimme über Qwen-TTS; sonst mit der Systemstimme.
-Die installierte App nutzt immer die Systemstimme.
+Ein eigener Ordner, getrennt von FireHorse: am Mac `~/Documents/FireHorseLight`, unter Linux im Dokumente-Ordner
+(`XDG_DOCUMENTS_DIR`), auf Android im App-Speicher. Varianten aus FireHorse holst du mit FireHorse → „Alle exportieren“
+und hier Einstellungen → Daten → „Importieren“. Theorie und Zeichnungen darin bleiben erhalten, werden hier nur nicht gezeigt.
 
 ## Bauen
 
 ```
 ./gradlew :shared:desktopTest        # Tests
-./gradlew :desktopApp:run            # Desktop-App starten
+./gradlew :desktopApp:run            # Desktop-App starten (-PdataDir=/ordner für einen Testordner)
 ./tools/build-release.sh             # DMG + signiertes APK nach dist/releases (am Mac)
 ./tools/build-linux.sh               # DEB + tar.gz nach dist/linux (unter Linux, braucht fakeroot)
 ```
 
-Voraussetzungen: ein JDK (Gradle besorgt sich JDK 21 selbst; für das DEB ein volles JDK mit `jpackage`,
-unter Ubuntu `openjdk-21-jdk`), für Android das Android SDK unter `~/Library/Android/sdk` oder in
-`local.properties`. `-PdataDir=/ordner` startet die Desktop-App mit einem anderen Datenordner.
-
-Das APK wird mit dem Schlüssel aus `~/.android/` signiert (siehe `tools/android-sign.sh`). Ohne denselben
-Schlüssel lässt sich ein Update nicht über die installierte App spielen.
+Das APK wird mit dem Schlüssel aus `~/.android/` signiert (siehe `tools/android-sign.sh`).
 
 ## Lizenz
 
