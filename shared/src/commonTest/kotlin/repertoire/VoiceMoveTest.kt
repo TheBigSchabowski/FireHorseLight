@@ -30,6 +30,40 @@ class VoiceMoveTest {
     }
 
     @Test
+    fun whatVoxtypeWroteForTheUsersVoiceIsUnderstoodBySound() {
+        // "knight f3" as voxtype wrote it down for the user's voice.
+        assertEquals("g1f3", VoiceMove.understand("Night of free.", Position.START)?.uci)
+        // Clearly nothing: no move is guessed.
+        assertNull(VoiceMove.understand("banana", Position.START))
+        assertNull(VoiceMove.understand("good morning everyone", Position.START))
+    }
+
+    @Test
+    fun whatTheSpeechTestTaughtComesFirst() {
+        val learned = SpeechTest.learned(listOf("d4" to "G1 d4", "e4" to "E4.", "knight f3" to "Night of free."))
+        // Right ones teach nothing, wrong ones are remembered by how they were written.
+        assertEquals(mapOf("gee one dee four" to "d4", "night of free" to "knight f3"), learned)
+        assertEquals("d2d4", VoiceMove.understand("G1, D4", Position.START, learned)?.uci)
+        // Heard the same for two different moves: that teaches nothing.
+        assertTrue(SpeechTest.learned(listOf("d4" to "Banana.", "e4" to "banana")).isEmpty())
+        // A clear move that cannot be played is not guessed into one that can.
+        assertNull(VoiceMove.understand("knight f6", Position.START))
+    }
+
+    @Test
+    fun theMovesToSayAreWrittenAsTheyAreSaid() {
+        assertEquals("knight b d2", SpeechTest.phrase("Nbd2"))
+        assertEquals("e takes d5", SpeechTest.phrase("exd5"))
+        assertEquals("bishop takes f7", SpeechTest.phrase("Bxf7"))
+        assertEquals("rook f e1", SpeechTest.phrase("Rfe1"))
+        assertEquals("e takes d8 queen", SpeechTest.phrase("exd8=Q"))
+        assertEquals("castles queenside", SpeechTest.phrase("O-O-O"))
+        assertEquals("knight f 3", SpeechTest.speech("knight f3"))
+        assertTrue(SpeechTest.PHRASES.size > 120)
+        assertEquals(SpeechTest.PHRASES.size, SpeechTest.PHRASES.distinct().size)
+    }
+
+    @Test
     fun movesInWordsAndHomophones() {
         assertEquals("e2e4", uci("pawn to e four"))
         assertEquals("e2e4", uci("e4"))

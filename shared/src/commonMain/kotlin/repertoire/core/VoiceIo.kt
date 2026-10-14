@@ -33,6 +33,9 @@ interface VoiceInput {
     /** What was said in [wav]. Takes a moment: call it away from the UI thread. [prompt] tells the recognizer what to expect. */
     fun transcribe(wav: ByteArray, prompt: String): String
 
+    /** What was kept as [name] before, null if nothing. */
+    fun read(name: String): ByteArray?
+
     /** Keeps [data] as [name] in the data folder (e.g. "Spracherkennung/07.wav"); returns where it went. */
     fun keep(data: ByteArray, name: String): String
 }

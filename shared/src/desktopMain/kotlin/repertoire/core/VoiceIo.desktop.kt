@@ -151,6 +151,8 @@ class DesktopVoiceInput(private val dataDir: File) : VoiceInput {
         }
     }
 
+    override fun read(name: String): ByteArray? = File(dataDir, name).takeIf { it.isFile }?.readBytes()
+
     override fun keep(data: ByteArray, name: String): String {
         val file = File(dataDir, name)
         file.parentFile?.mkdirs()

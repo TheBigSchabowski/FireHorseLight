@@ -240,6 +240,7 @@ const val TAP_MS = 350
 
 /** Where the speech test and the voice sample are kept, inside the data folder. */
 const val SPEECH_TEST_DIR = "Spracherkennung"
+const val SPEECH_TEST_TABLE = "ergebnisse.tsv"
 const val VOICE_DIR = "Stimme"
 
 /** Which move the engine as opponent plays: the best, second best or third best. */
@@ -259,11 +260,13 @@ class VoiceLab(val sample: Boolean) {
     /** The phrase of the speech test that is asked now; past the end when all are done. */
     var index by mutableIntStateOf(0)
 
-    /** What voxtype wrote down for each phrase so far. */
-    val heard = mutableStateListOf<String>()
+    /** What voxtype wrote down for each phrase of [SpeechTest.SAMPLES]; null where it was not said yet. */
+    val heard = mutableStateListOf<String?>().apply { repeat(SpeechTest.SAMPLES.size) { add(null) } }
 
     /** Where the voice sample was saved, once it is. */
     var saved by mutableStateOf<String?>(null)
+
+    val said: Int get() = heard.count { it != null }
 
     val done: Boolean get() = if (sample) saved != null else index >= SpeechTest.SAMPLES.size
 }
@@ -1586,6 +1589,13 @@ class AppViewModel(
 
     private var voiceProblemShown = false
 
+    /** What the speech test taught: transcripts voxtype got wrong → what was said. */
+    private var learned: Map<String, String> = speechTestTable().let(SpeechTest::learned)
+
+    /** (said, heard) of the speech test so far, from its table in the data folder. */
+    private fun speechTestTable(): List<Pair<String, String>> =
+        voice?.read("$SPEECH_TEST_DIR/$SPEECH_TEST_TABLE")?.decodeToString()?.let(SpeechTest::readTable).orEmpty()
+
     /** A puzzle waits for a move, or the editor is open: something a said move can go to. */
     private val takesMoves: Boolean
         get() = editor != null || session?.attempt?.let { !it.finished } == true || session?.done == true
@@ -1639,13 +1649,21 @@ class AppViewModel(
         }
         val scope = uiScope ?: return false
         transcribing = true
+        val prompt = if (lab != null) CHESS_PROMPT else movePrompt()
         scope.launch {
-            val text = runCatching { withContext(transcribeOn) { v.transcribe(wav, CHESS_PROMPT) } }
+            val text = runCatching { withContext(transcribeOn) { v.transcribe(wav, prompt) } }
             transcribing = false
             text.onSuccess { if (lab != null) speechTestHeard(lab, wav, it) else onSpoken(it) }
                 .onFailure { flash = "Spracherkennung: ${it.message}" }
         }
         return false
+    }
+
+    /** The recognizer is told which moves are possible right now, so it writes one of them down. */
+    private fun movePrompt(): String {
+        val position = editor?.position ?: session?.attempt?.takeIf { !it.finished }?.position ?: return CHESS_PROMPT
+        val moves = position.legalMoves().take(40).joinToString(", ") { VoiceMove.toSpokenEnglish(position, it).lowercase() }
+        return "$CHESS_PROMPT Possible now: $moves."
     }
 
     /**
@@ -1656,7 +1674,8 @@ class AppViewModel(
         val text = transcript.trim()
         if (text.isEmpty()) return
         heard = text
-        val read = VoiceMove.read(text)
+        // What the speech test taught comes first: "night of free" was "knight f3".
+        val read = VoiceMove.read(learned[VoiceMove.normalize(text)] ?: text)
         when (read.command) {
             VoiceCommand.BOARD -> return peek()
             VoiceCommand.REPEAT -> return lastSaid?.let(speaker::say) ?: Unit
@@ -1672,7 +1691,7 @@ class AppViewModel(
             flash = "Gerade wartet kein Brett auf einen Zug."
             return
         }
-        val move = VoiceMove.match(read, position) ?: VoiceMove.parseSpokenEnglish(text, position)
+        val move = VoiceMove.match(read, position) ?: VoiceMove.understand(text, position, learned)
         if (move == null) {
             // Understood as a move, just not one that can be played here: say so, rather than "not understood".
             val understood = read.target != null || read.castle != null
@@ -1688,9 +1707,30 @@ class AppViewModel(
         }
     }
 
+    /** Opens the speech test where it was left: what was said before is in its table. */
     fun openSpeechTest() {
         prefs = null
-        voiceLab = VoiceLab(sample = false)
+        val lab = VoiceLab(sample = false)
+        for ((said, heard) in speechTestTable()) {
+            val i = SpeechTest.PHRASES.indexOf(said)
+            if (i >= 0) lab.heard[i] = heard
+        }
+        lab.index = lab.heard.indexOfFirst { it == null }.let { if (it < 0) lab.heard.size else it }
+        voiceLab = lab
+        askPhrase(lab)
+    }
+
+    /** The app says the phrase to say after it (again). */
+    fun askPhrase() {
+        voiceLab?.let(::askPhrase)
+    }
+
+    private fun askPhrase(lab: VoiceLab) {
+        if (lab.sample) return
+        SpeechTest.PHRASES.getOrNull(lab.index)?.let {
+            speaker.stop()
+            speaker.say(SpeechTest.speech(it))
+        }
     }
 
     fun openVoiceSample() {
@@ -1707,22 +1747,26 @@ class AppViewModel(
     /** Skips a phrase of the speech test, or goes back to say one again ([by] -1). */
     fun speechTestStep(by: Int) {
         val lab = voiceLab ?: return
-        lab.index = (lab.index + by).coerceIn(0, minOf(lab.heard.size, SpeechTest.SAMPLES.size))
+        lab.index = (lab.index + by).coerceIn(0, SpeechTest.SAMPLES.size)
+        askPhrase(lab)
     }
 
     private fun speechTestHeard(lab: VoiceLab, wav: ByteArray, text: String) {
         val v = voice ?: return
         val i = lab.index
         val sample = SpeechTest.SAMPLES.getOrNull(i) ?: return
-        if (i < lab.heard.size) lab.heard[i] = text else lab.heard += text
-        val number = (i + 1).toString().padStart(2, '0')
+        lab.heard[i] = text
+        val number = (i + 1).toString().padStart(3, '0')
         v.keep(wav, "$SPEECH_TEST_DIR/$number ${sample.say}.wav")
-        // One line per phrase, as a table: what was meant, what voxtype wrote, whether it reads right.
-        val table = SpeechTest.SAMPLES.zip(lab.heard).mapIndexed { n, (s, h) ->
-            listOf((n + 1).toString(), s.say, h, if (SpeechTest.isRight(s, h)) "ok" else "FALSCH", VoiceMove.read(h).describe()).joinToString("\t")
+        // One line per phrase said, as a table: what was meant, what voxtype wrote, whether it reads right.
+        val table = SpeechTest.SAMPLES.zip(lab.heard).mapIndexedNotNull { n, (s, h) ->
+            h?.let { listOf((n + 1).toString(), s.say, it, if (SpeechTest.isRight(s, it)) "ok" else "FALSCH", VoiceMove.read(it).describe()).joinToString("\t") }
         }
-        v.keep(("Nr\tgesagt\tvoxtype\tok\tverstanden\n" + table.joinToString("\n") + "\n").encodeToByteArray(), "$SPEECH_TEST_DIR/ergebnisse.tsv")
-        lab.index = i + 1
+        v.keep((SpeechTest.TABLE_HEADER + "\n" + table.joinToString("\n") + "\n").encodeToByteArray(), "$SPEECH_TEST_DIR/$SPEECH_TEST_TABLE")
+        learned = SpeechTest.learned(SpeechTest.PHRASES.zip(lab.heard).mapNotNull { (s, h) -> h?.let { s to it } })
+        // On to the next phrase not said yet.
+        lab.index = (i + 1 until lab.heard.size).firstOrNull { lab.heard[it] == null } ?: lab.heard.indexOfFirst { it == null }.let { if (it < 0) lab.heard.size else it }
+        askPhrase(lab)
     }
 
     private fun keepVoiceSample(lab: VoiceLab, wav: ByteArray) {

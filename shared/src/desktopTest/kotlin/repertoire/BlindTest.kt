@@ -10,6 +10,7 @@ import repertoire.core.Store
 import repertoire.core.VoiceInput
 import repertoire.ui.AppViewModel
 import repertoire.ui.SPEECH_TEST_DIR
+import repertoire.ui.SPEECH_TEST_TABLE
 import repertoire.ui.TAP_MS
 import repertoire.ui.VOICE_DIR
 import kotlin.test.Test
@@ -54,6 +55,7 @@ class BlindTest {
         }
 
         override fun transcribe(wav: ByteArray, prompt: String): String = next
+        override fun read(name: String): ByteArray? = kept[name]
         override fun keep(data: ByteArray, name: String): String = name.also { kept[it] = data }
     }
 
@@ -180,21 +182,33 @@ class BlindTest {
     }
 
     @Test
-    fun theSpeechTestKeepsEveryRecordingAndATable() {
+    fun theSpeechTestSaysThePhraseKeepsEveryRecordingAndLearns() {
         val vm = app()
         vm.openSpeechTest()
-        vm.speak("knight f3")
-        vm.speak("Go on to E4.")
+        assertEquals("e 4", mouth.said.last())
+        vm.speak("E4.")
+        assertEquals("d 4", mouth.said.last())
+        vm.speak("G1 d4")
         val lab = vm.voiceLab!!
         assertEquals(2, lab.index)
-        assertEquals(listOf("knight f3", "Go on to E4."), lab.heard)
-        val table = mic.kept.getValue("$SPEECH_TEST_DIR/ergebnisse.tsv").decodeToString().lines()
-        assertTrue(table[1].startsWith("1\t${SpeechTest.PHRASES[0]}\tknight f3\t"), table[1])
-        assertTrue("$SPEECH_TEST_DIR/01 ${SpeechTest.PHRASES[0]}.wav" in mic.kept)
-        // Back one: the phrase is asked again and its answer replaced.
-        vm.speechTestStep(-1)
-        vm.speak(SpeechTest.PHRASES[1])
-        assertEquals("ok", mic.kept.getValue("$SPEECH_TEST_DIR/ergebnisse.tsv").decodeToString().lines()[2].split("\t")[3])
+        assertEquals(listOf("E4.", "G1 d4"), lab.heard.take(2))
+        val table = mic.kept.getValue("$SPEECH_TEST_DIR/$SPEECH_TEST_TABLE").decodeToString().lines()
+        assertEquals("1\te4\tE4.\tok", table[1].split("\t").take(4).joinToString("\t"))
+        assertEquals("FALSCH", table[2].split("\t")[3])
+        assertTrue("$SPEECH_TEST_DIR/001 e4.wav" in mic.kept)
+
+        // Opened again, it goes on where it was left.
+        vm.closeVoiceLab()
+        vm.openSpeechTest()
+        assertEquals(2, vm.voiceLab!!.index)
+        vm.closeVoiceLab()
+
+        // What was misheard counts as what was meant from now on.
+        vm.addVariant("Damenbauer", true, "d4", "d5")
+        vm.startCram()
+        vm.speak("G1 d4")
+        assertEquals(1, vm.session!!.attempt!!.played.size)
+        assertEquals(0, vm.mistakes(vm.session!!))
     }
 
     @Test

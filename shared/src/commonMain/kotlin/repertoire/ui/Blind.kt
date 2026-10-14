@@ -157,7 +157,7 @@ fun VoiceLabScreen(vm: AppViewModel, lab: VoiceLab, modifier: Modifier = Modifie
     Column(modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (lab.sample) "Stimmprobe für Qwen3-TTS" else "Spracherkennung testen",
+                if (lab.sample) "Stimmprobe für Qwen3-TTS" else "Züge einsprechen",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.weight(1f),
             )
@@ -178,34 +178,43 @@ fun VoiceLabScreen(vm: AppViewModel, lab: VoiceLab, modifier: Modifier = Modifie
 private fun SpeechTestPage(vm: AppViewModel, lab: VoiceLab) {
     val samples = SpeechTest.SAMPLES
     Text(
-        "Jeder Zug wird einmal gesagt: Leertaste halten, sagen, loslassen. Gespeichert wird jede Aufnahme mit dem, was voxtype " +
-            "daraus gemacht hat – daraus lässt sich ablesen, welche Wörter es verhört. Sprich so, wie du beim Üben sprechen würdest.",
+        "Die App sagt einen Zug vor, du sagst ihn nach: Leertaste halten, sagen, loslassen. Jede Aufnahme wird mit dem gespeichert, " +
+            "was voxtype daraus gemacht hat. Was es falsch versteht, merkt sich die App für dein Üben – und aus den Aufnahmen lässt sich " +
+            "später eine eigene Erkennung bauen. Sprich so, wie du beim Üben sprechen würdest. Aufhören geht jederzeit, beim nächsten Mal geht es hier weiter.",
         style = MaterialTheme.typography.bodyMedium,
     )
     Spacer(Modifier.height(20.dp))
     val current = samples.getOrNull(lab.index)
     if (current != null) {
-        Text("${lab.index + 1} von ${samples.size} · sag:", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("${lab.index + 1} von ${samples.size} · ${lab.said} gesagt · sag nach:", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(current.say, fontSize = 44.sp, lineHeight = 52.sp, fontWeight = FontWeight.Bold)
+        lab.heard[lab.index]?.let { Text("Zuletzt gehört: „$it“", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         Spacer(Modifier.height(8.dp))
         VoiceStatus(vm)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { vm.speechTestStep(-1) }, enabled = lab.index > 0) { Text("← Nochmal den davor") }
-            OutlinedButton(onClick = { vm.speechTestStep(1) }, enabled = lab.index < lab.heard.size) { Text("Weiter →") }
+            OutlinedButton(onClick = { vm.speechTestStep(-1) }, enabled = lab.index > 0) { Text("←") }
+            OutlinedButton(onClick = vm::askPhrase) { Text("🔊 Nochmal vorsagen") }
+            OutlinedButton(onClick = { vm.speechTestStep(1) }) { Text("Überspringen →") }
         }
     } else {
-        val right = samples.zip(lab.heard).count { (s, h) -> SpeechTest.isRight(s, h) }
-        Text("Fertig: $right von ${samples.size} richtig verstanden.", style = MaterialTheme.typography.titleLarge, color = if (right == samples.size) GOOD else INFO)
+        val right = samples.zip(lab.heard).count { (s, h) -> h != null && SpeechTest.isRight(s, h) }
+        Text("Fertig: $right von ${lab.said} richtig verstanden.", style = MaterialTheme.typography.titleLarge, color = if (right == lab.said) GOOD else INFO)
         Spacer(Modifier.height(4.dp))
         Text("Aufnahmen und Tabelle liegen in ${vm.dataLocation}/$SPEECH_TEST_DIR.", style = MaterialTheme.typography.bodySmall)
+        if (lab.said < samples.size) TextButton(onClick = { vm.speechTestStep(-samples.size) }) { Text("Zu den übersprungenen") }
     }
-    if (lab.heard.isNotEmpty()) {
+    if (lab.said > 0) {
         Spacer(Modifier.height(20.dp))
-        samples.zip(lab.heard).forEachIndexed { i, (s, h) ->
-            val ok = SpeechTest.isRight(s, h)
+        val wrong = samples.zip(lab.heard).count { (s, h) -> h != null && !SpeechTest.isRight(s, h) }
+        Text("${lab.said - wrong} richtig · $wrong falsch verstanden", fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
+        // The latest first, so the one just said is in sight.
+        samples.zip(lab.heard).withIndex().filter { it.value.second != null }.reversed().forEach { (i, pair) ->
+            val (s, h) = pair
+            val ok = SpeechTest.isRight(s, h!!)
             Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                Text("${i + 1}.", modifier = Modifier.widthIn(min = 32.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${i + 1}.", modifier = Modifier.widthIn(min = 40.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(s.say, modifier = Modifier.weight(1f), fontFamily = FontFamily.Monospace)
                 Text("„$h“", modifier = Modifier.weight(1f), fontFamily = FontFamily.Monospace)
                 Text(if (ok) "✓" else "✗ ${VoiceMove.read(h).describe()}", color = if (ok) GOOD else LISTEN, modifier = Modifier.weight(1f))

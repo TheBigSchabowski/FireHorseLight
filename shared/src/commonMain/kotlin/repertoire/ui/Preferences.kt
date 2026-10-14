@@ -158,7 +158,7 @@ private fun ConfigPage(vm: AppViewModel, touch: Boolean, scrollTo: suspend (Layo
             Hint(remember(voice) { voice.problem() } ?: "Bereit: Leertaste halten, Zug auf Englisch sagen, loslassen. Erkannt wird mit voxtype.")
             Spacer(Modifier.height(6.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = vm::openSpeechTest) { Text("Spracherkennung testen") }
+                OutlinedButton(onClick = vm::openSpeechTest) { Text("Züge einsprechen") }
                 OutlinedButton(onClick = vm::openVoiceSample) { Text("Stimmprobe aufnehmen") }
             }
         } else {
@@ -671,10 +671,11 @@ private fun HelpPage(vm: AppViewModel, prefs: Prefs.Help, touch: Boolean) {
             Bullet("Züge", "„e4“, „knight f3“, „bishop takes c4“, „e takes d5“, „castles kingside“ / „short castle“, „long castle“, „e8 queen“. „pawn“ und „to“ darf man sagen oder weglassen.")
             Bullet("Kommandos", "„board“ deckt auf, „repeat“ wiederholt die letzte Ansage, „hint“ sagt den richtigen Zug (zählt als Fehler), „next“ = Gut / Weiter, „restart“ von vorn, „undo“ nimmt im Editor einen Zug zurück.")
             if (vm.voice != null) {
-                SubHeading("Spracherkennung testen")
+                SubHeading("Züge einsprechen")
                 Para(
-                    "In der Konfiguration unter „Blind und Stimme“: jeder Zug einmal sagen. Die Aufnahmen und eine Tabelle mit dem, was voxtype daraus gemacht hat, " +
-                        "liegen danach im Ordner $SPEECH_TEST_DIR im Datenordner – damit lässt sich die Erkennung an deine Aussprache anpassen.",
+                    "In der Konfiguration unter „Blind und Stimme“: die App sagt die gängigen Züge vor, du sagst sie nach. Was voxtype dabei falsch versteht, " +
+                        "merkt sich die App – sagst du es beim Üben wieder so, gilt es als der richtige Zug. Aufnahmen und Tabelle liegen im Ordner " +
+                        "$SPEECH_TEST_DIR im Datenordner. Unabhängig davon nimmt die App, wenn nichts genau passt, den möglichen Zug, der am ähnlichsten klingt.",
                 )
                 SubHeading("Eigene Stimme")
                 Para(
