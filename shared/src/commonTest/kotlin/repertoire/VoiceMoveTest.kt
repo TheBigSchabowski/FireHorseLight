@@ -146,17 +146,18 @@ class VoiceMoveTest {
 
     @Test
     fun everyPhraseOfTheSpeechTestMeansSomething() {
-        for (sample in SpeechTest.SAMPLES) {
-            val h = sample.expected
-            assertTrue(h.command != null || h.castle != null || h.target != null, "„${sample.say}“ wird als nichts gelesen")
-            assertTrue(SpeechTest.isRight(sample, sample.say))
+        for (phrase in SpeechTest.PHRASES) {
+            val h = VoiceMove.read(phrase)
+            assertTrue(h.command != null || h.castle != null || h.target != null, "„$phrase“ wird als nichts gelesen")
+            assertTrue(SpeechTest.isRight(phrase, phrase))
         }
         // Mishearings that still mean the same count, others do not.
-        val e4 = SpeechTest.SAMPLES.first { it.say == "pawn to e4" }
-        assertTrue(SpeechTest.isRight(e4, "Go on to E4."))
-        assertTrue(!SpeechTest.isRight(e4, "G1 d4"))
-        val castles = SpeechTest.SAMPLES.first { it.say == "castles kingside" }
-        assertTrue(SpeechTest.isRight(castles, "castle's king side."))
-        assertNotNull(SpeechTest.SAMPLES.firstOrNull { it.expected.promotion == 'n' })
+        assertTrue(SpeechTest.isRight("pawn to e4", "Go on to E4."))
+        assertTrue(!SpeechTest.isRight("pawn to e4", "G1 d4"))
+        assertTrue(SpeechTest.isRight("castles kingside", "castle's king side."))
+        assertNotNull(SpeechTest.PHRASES.firstOrNull { VoiceMove.read(it).promotion == 'n' })
+        // The own variants' moves first, each once.
+        val own = repertoire.core.Variant("x", "Sizilianisch", "Najdorf", listOf("e2e4", "c7c5", "g1f3"))
+        assertEquals(listOf("e4", "c5", "knight f3", "d4"), SpeechTest.phrases(listOf(own)).take(4))
     }
 }

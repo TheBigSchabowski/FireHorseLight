@@ -338,9 +338,6 @@ enum class VoiceCommand(vararg val words: String) {
     }
 }
 
-/** One thing to say in the speech test, and what it should be read as. */
-data class SpeechSample(val say: String, val expected: VoiceMove.Heard)
-
 /**
  * Saying moves in: the app says a move, the user says it after, and what voxtype writes down is
  * kept with the recording. The common opening moves – every piece, file and rank among them –
@@ -388,7 +385,16 @@ object SpeechTest {
         listOf("pawn to e4", "knight to c3", "bishop to e2") +
         VoiceCommand.entries.map { it.words.first() }
 
-    val SAMPLES: List<SpeechSample> = PHRASES.map { SpeechSample(it, VoiceMove.read(it)) }
+    /**
+     * What to say in: the moves of the user's own variants first (those are the ones that will be
+     * said when practising), then the common ones and the commands.
+     */
+    fun phrases(variants: List<Variant>): List<String> {
+        val own = variants.flatMap { v ->
+            v.moves.mapIndexed { i, uci -> phrase(v.positions[i].san(Move.fromUci(uci)).trimEnd('+', '#')) }
+        }
+        return (own + PHRASES).distinct()
+    }
 
     /** What the app says for [phrase]: "knight f 3", so that text-to-speech says "f three". */
     fun speech(phrase: String): String = phrase.replace(Regex("([a-h])([1-8])"), "$1 $2")
@@ -397,7 +403,7 @@ object SpeechTest {
      * A recognition counts if it reads as the same thing as what was meant. A pawn need not be
      * named, "takes" need not be heard, and plain "castles" is kingside, as when playing.
      */
-    fun isRight(sample: SpeechSample, transcript: String): Boolean = loose(VoiceMove.read(transcript)) == loose(sample.expected)
+    fun isRight(said: String, transcript: String): Boolean = loose(VoiceMove.read(transcript)) == loose(VoiceMove.read(said))
 
     private fun loose(h: VoiceMove.Heard) = h.copy(piece = h.piece ?: 'P', takes = false, castle = if (h.castle == '?') 'K' else h.castle)
 
@@ -406,7 +412,7 @@ object SpeechTest {
      * said. A transcript heard for two different things teaches nothing.
      */
     fun learned(results: List<Pair<String, String>>): Map<String, String> {
-        val wrong = results.filter { (said, heard) -> SAMPLES.firstOrNull { it.say == said }?.let { !isRight(it, heard) } == true }
+        val wrong = results.filter { (said, heard) -> !isRight(said, heard) }
         return wrong.groupBy({ VoiceMove.normalize(it.second) }, { it.first })
             .filter { (key, said) -> key.isNotBlank() && said.distinct().size == 1 }
             .mapValues { it.value.first() }

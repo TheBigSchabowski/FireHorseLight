@@ -79,6 +79,9 @@ fun HomeScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 OutlinedButton(onClick = vm::startCram, enabled = stats.total > 0) { Text("Frei üben") }
                 FilledTonalButton(onClick = { vm.newVariant() }) { Text("+ Neue Variante") }
                 OutlinedButton(onClick = vm::openPaste) { Text("PGN/FEN einfügen") }
+                if (vm.voice != null) {
+                    OutlinedButton(onClick = vm::openSpeechTest) { Text("🎙 Training (${vm.recordedPhrases})") }
+                }
                 FilterChip(
                     selected = vm.blind,
                     onClick = vm::toggleBlind,

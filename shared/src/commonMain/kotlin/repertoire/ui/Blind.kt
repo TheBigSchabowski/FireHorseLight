@@ -157,7 +157,7 @@ fun VoiceLabScreen(vm: AppViewModel, lab: VoiceLab, modifier: Modifier = Modifie
     Column(modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (lab.sample) "Stimmprobe für Qwen3-TTS" else "Züge einsprechen",
+                if (lab.sample) "Stimmprobe für Qwen3-TTS" else "Training: Züge einsprechen",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.weight(1f),
             )
@@ -176,21 +176,31 @@ fun VoiceLabScreen(vm: AppViewModel, lab: VoiceLab, modifier: Modifier = Modifie
 
 @Composable
 private fun SpeechTestPage(vm: AppViewModel, lab: VoiceLab) {
-    val samples = SpeechTest.SAMPLES
+    val phrases = lab.phrases
     Text(
-        "Die App sagt einen Zug vor, du sagst ihn nach: Leertaste halten, sagen, loslassen. Jede Aufnahme wird mit dem gespeichert, " +
-            "was voxtype daraus gemacht hat. Was es falsch versteht, merkt sich die App für dein Üben – und aus den Aufnahmen lässt sich " +
-            "später eine eigene Erkennung bauen. Sprich so, wie du beim Üben sprechen würdest. Aufhören geht jederzeit, beim nächsten Mal geht es hier weiter.",
+        "Damit die App deine Stimme kennt: sie sagt einen Zug vor, du sagst ihn nach. Erkannt wird später am Klang – " +
+            "sag es so, wie du es beim Üben sagen wirst (auch auf Deutsch, z. B. „kurze Rochade“, wenn du das lieber sagst). " +
+            "Zuerst kommen die Züge deiner eigenen Varianten. Aufhören geht jederzeit, beim nächsten Mal geht es hier weiter.",
         style = MaterialTheme.typography.bodyMedium,
     )
-    Spacer(Modifier.height(20.dp))
-    val current = samples.getOrNull(lab.index)
+    Spacer(Modifier.height(16.dp))
+    // The one thing to know, big: unlike a button, Space is held while speaking.
+    Text(
+        if (vm.listening) "🎙 Ich höre … jetzt loslassen, wenn du fertig bist" else "Leertaste gedrückt HALTEN, sprechen, dann loslassen",
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold,
+        color = if (vm.listening) LISTEN else INFO,
+    )
+    Spacer(Modifier.height(16.dp))
+    val current = phrases.getOrNull(lab.index)
     if (current != null) {
-        Text("${lab.index + 1} von ${samples.size} · ${lab.said} gesagt · sag nach:", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(current.say, fontSize = 44.sp, lineHeight = 52.sp, fontWeight = FontWeight.Bold)
-        lab.heard[lab.index]?.let { Text("Zuletzt gehört: „$it“", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Text("${lab.index + 1} von ${phrases.size} · ${lab.said} eingesprochen · sag nach:", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(current, fontSize = 48.sp, lineHeight = 56.sp, fontWeight = FontWeight.Bold)
+        lab.heard[lab.index]?.let {
+            Text("Schon eingesprochen – nochmal sprechen legt eine weitere Aufnahme dazu.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Spacer(Modifier.height(8.dp))
-        VoiceStatus(vm)
+        if (vm.transcribing) VoiceStatus(vm)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { vm.speechTestStep(-1) }, enabled = lab.index > 0) { Text("←") }
@@ -198,26 +208,23 @@ private fun SpeechTestPage(vm: AppViewModel, lab: VoiceLab) {
             OutlinedButton(onClick = { vm.speechTestStep(1) }) { Text("Überspringen →") }
         }
     } else {
-        val right = samples.zip(lab.heard).count { (s, h) -> h != null && SpeechTest.isRight(s, h) }
-        Text("Fertig: $right von ${lab.said} richtig verstanden.", style = MaterialTheme.typography.titleLarge, color = if (right == lab.said) GOOD else INFO)
+        Text("Fertig: ${lab.said} von ${phrases.size} eingesprochen.", style = MaterialTheme.typography.titleLarge, color = GOOD)
         Spacer(Modifier.height(4.dp))
-        Text("Aufnahmen und Tabelle liegen in ${vm.dataLocation}/$SPEECH_TEST_DIR.", style = MaterialTheme.typography.bodySmall)
-        if (lab.said < samples.size) TextButton(onClick = { vm.speechTestStep(-samples.size) }) { Text("Zu den übersprungenen") }
+        Text("Die Aufnahmen liegen in ${vm.dataLocation}/$SPEECH_TEST_DIR.", style = MaterialTheme.typography.bodySmall)
+        if (lab.said < phrases.size) TextButton(onClick = { vm.speechTestStep(-phrases.size) }) { Text("Zu den übersprungenen") }
     }
     if (lab.said > 0) {
         Spacer(Modifier.height(20.dp))
-        val wrong = samples.zip(lab.heard).count { (s, h) -> h != null && !SpeechTest.isRight(s, h) }
-        Text("${lab.said - wrong} richtig · $wrong falsch verstanden", fontWeight = FontWeight.SemiBold)
+        Text("Eingesprochen (neueste zuerst) – daneben, was Whisper ohne deine Aufnahmen verstanden hätte:", fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(6.dp))
-        // The latest first, so the one just said is in sight.
-        samples.zip(lab.heard).withIndex().filter { it.value.second != null }.reversed().forEach { (i, pair) ->
-            val (s, h) = pair
-            val ok = SpeechTest.isRight(s, h!!)
+        phrases.zip(lab.heard).withIndex().filter { it.value.second != null }.reversed().take(30).forEach { (i, pair) ->
+            val (said, heard) = pair
+            val ok = heard!!.isNotEmpty() && SpeechTest.isRight(said, heard)
             Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                 Text("${i + 1}.", modifier = Modifier.widthIn(min = 40.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(s.say, modifier = Modifier.weight(1f), fontFamily = FontFamily.Monospace)
-                Text("„$h“", modifier = Modifier.weight(1f), fontFamily = FontFamily.Monospace)
-                Text(if (ok) "✓" else "✗ ${VoiceMove.read(h).describe()}", color = if (ok) GOOD else LISTEN, modifier = Modifier.weight(1f))
+                Text(said, modifier = Modifier.weight(1f), fontFamily = FontFamily.Monospace)
+                Text(if (heard.isEmpty()) "–" else "„$heard“", modifier = Modifier.weight(1f), fontFamily = FontFamily.Monospace)
+                Text(if (ok) "✓" else "✗", color = if (ok) GOOD else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.3f))
             }
         }
     }

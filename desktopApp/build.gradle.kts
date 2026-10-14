@@ -46,7 +46,9 @@ compose.desktop {
             macOS {
                 bundleID = "de.privat.firehorselight"
                 iconFile.set(project.file("icon.icns"))
-                // Without it macOS does not let the app record: Space held records a move to say.
+                // The microphone needs both: the entitlement (hardened runtime) and the reason shown when asking.
+                entitlementsFile.set(project.file("entitlements.plist"))
+                runtimeEntitlementsFile.set(project.file("entitlements.plist"))
                 infoPlist {
                     extraKeysRawXml = """
                         <key>NSMicrophoneUsageDescription</key>

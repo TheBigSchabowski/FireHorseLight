@@ -36,6 +36,9 @@ interface VoiceInput {
     /** What was kept as [name] before, null if nothing. */
     fun read(name: String): ByteArray?
 
+    /** Everything kept under the folder [dir], as names to [read] ("Spracherkennung/knight f3/1.wav"). */
+    fun list(dir: String): List<String>
+
     /** Keeps [data] as [name] in the data folder (e.g. "Spracherkennung/07.wav"); returns where it went. */
     fun keep(data: ByteArray, name: String): String
 }

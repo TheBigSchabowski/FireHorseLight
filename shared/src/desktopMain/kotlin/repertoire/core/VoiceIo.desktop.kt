@@ -153,6 +153,11 @@ class DesktopVoiceInput(private val dataDir: File) : VoiceInput {
 
     override fun read(name: String): ByteArray? = File(dataDir, name).takeIf { it.isFile }?.readBytes()
 
+    override fun list(dir: String): List<String> {
+        val root = File(dataDir, dir)
+        return root.walkTopDown().filter { it.isFile }.map { "$dir/" + it.relativeTo(root).invariantSeparatorsPath }.toList()
+    }
+
     override fun keep(data: ByteArray, name: String): String {
         val file = File(dataDir, name)
         file.parentFile?.mkdirs()
