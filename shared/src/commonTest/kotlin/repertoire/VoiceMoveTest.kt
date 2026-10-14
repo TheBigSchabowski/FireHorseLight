@@ -158,6 +158,7 @@ class VoiceMoveTest {
         assertNotNull(SpeechTest.PHRASES.firstOrNull { VoiceMove.read(it).promotion == 'n' })
         // The own variants' moves first, each once.
         val own = repertoire.core.Variant("x", "Sizilianisch", "Najdorf", listOf("e2e4", "c7c5", "g1f3"))
-        assertEquals(listOf("e4", "c5", "knight f3", "d4"), SpeechTest.phrases(listOf(own)).take(4))
+        assertEquals(listOf("e4", "c5", "knight f3", "board"), SpeechTest.phrases(listOf(own)).take(4))
+        assertEquals("d4", SpeechTest.phrases(listOf(own), common = true)[3 + SpeechTest.COMMANDS.size])
     }
 }

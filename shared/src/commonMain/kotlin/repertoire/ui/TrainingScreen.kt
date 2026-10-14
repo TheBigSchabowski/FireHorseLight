@@ -106,7 +106,7 @@ fun TrainingScreen(vm: AppViewModel, session: TrainingSession, modifier: Modifie
                         lastMove = attempt.lastMove,
                         marks = session.marks,
                         interactive = !attempt.finished,
-                        onMove = vm::submitMove,
+                        onMove = vm::boardMove,
                         modifier = modifier,
                     )
                 }

@@ -158,6 +158,10 @@ class DesktopVoiceInput(private val dataDir: File) : VoiceInput {
         return root.walkTopDown().filter { it.isFile }.map { "$dir/" + it.relativeTo(root).invariantSeparatorsPath }.toList()
     }
 
+    override fun delete(name: String) {
+        File(dataDir, name).delete()
+    }
+
     override fun keep(data: ByteArray, name: String): String {
         val file = File(dataDir, name)
         file.parentFile?.mkdirs()

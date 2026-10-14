@@ -671,11 +671,16 @@ private fun HelpPage(vm: AppViewModel, prefs: Prefs.Help, touch: Boolean) {
             Bullet("Züge", "„e4“, „knight f3“, „bishop takes c4“, „e takes d5“, „castles kingside“ / „short castle“, „long castle“, „e8 queen“. „pawn“ und „to“ darf man sagen oder weglassen.")
             Bullet("Kommandos", "„board“ deckt auf, „repeat“ wiederholt die letzte Ansage, „hint“ sagt den richtigen Zug (zählt als Fehler), „next“ = Gut / Weiter, „restart“ von vorn, „undo“ nimmt im Editor einen Zug zurück.")
             if (vm.voice != null) {
-                SubHeading("Züge einsprechen")
+                SubHeading("Die App lernt deine Stimme")
                 Para(
-                    "In der Konfiguration unter „Blind und Stimme“: die App sagt die gängigen Züge vor, du sagst sie nach. Was voxtype dabei falsch versteht, " +
-                        "merkt sich die App – sagst du es beim Üben wieder so, gilt es als der richtige Zug. Aufnahmen und Tabelle liegen im Ordner " +
-                        "$SPEECH_TEST_DIR im Datenordner. Unabhängig davon nimmt die App, wenn nichts genau passt, den möglichen Zug, der am ähnlichsten klingt.",
+                    "Jeder Zug, den sie erkennt, wird als Aufnahme gemerkt; beim nächsten Mal erkennt sie ihn am Klang („am Klang erkannt“) – " +
+                        "egal wie du ihn sagst, auch auf Deutsch. Versteht sie etwas nicht, zieh oder tipp einfach den gemeinten Zug: die Aufnahme " +
+                        "gehört dann zu ihm. „Falsch erkannt“ unter dem Gehörten löst eine falsche Zuordnung (im Editor wird der Zug zurückgenommen), " +
+                        "und der Zug, den du danach ziehst oder tippst, bekommt die Aufnahme.",
+                )
+                Para(
+                    "Schneller geht es mit „🎙 Training“ auf der Startseite: die App sagt die Züge deiner Varianten und die Kommandos vor, du sagst sie nach. " +
+                        "Die Aufnahmen liegen im Ordner $SPEECH_TEST_DIR im Datenordner, bis zu $TAKES pro Zug.",
                 )
                 SubHeading("Eigene Stimme")
                 Para(

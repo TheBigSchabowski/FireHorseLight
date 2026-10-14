@@ -1702,7 +1702,7 @@ class AppViewModel(
                 }
             }
             transcribing = false
-            result.onSuccess { onSpoken(it.text, bySound = it.bySound) }
+            result.onSuccess { onSpoken(it.text, bySound = it.bySound, recording = wav) }
                 .onFailure { flash = "Spracherkennung: ${it.message}" }
         }
         return false
@@ -1726,16 +1726,89 @@ class AppViewModel(
         return "$CHESS_PROMPT Possible now: $moves."
     }
 
+    // ---- Learning while playing: every recording that led to a move is one more way it sounds ----
+
+    /** The last recording that was recognized, for „Falsch erkannt“. */
+    private var lastRecording: ByteArray? = null
+
+    /** Where [lastRecording] was kept as a recording of the move it was taken for; null if it was not. */
+    private var lastLearned: String? = null
+
+    /** [lastRecording] went to the editor as a move, so „Falsch erkannt“ takes that move back. */
+    private var lastInEditor = false
+
+    /** The last recognition can be called wrong. */
+    var canCorrect by mutableStateOf(false)
+        private set
+
     /**
-     * A move or command said (recognized by sound or by Whisper) or typed into the field: played in
-     * the editor if one is open, otherwise in the puzzle.
+     * A recording that was not understood, or called wrong: the next move played on the board or
+     * typed is what it meant, and it is kept as a recording of that move.
      */
-    fun onSpoken(transcript: String, bySound: Boolean = false) {
+    var pendingRecording by mutableStateOf<ByteArray?>(null)
+        private set
+
+    /** Keeps [wav] as one more recording of [phrase] (the newest [TAKES]); returns its name. */
+    private fun saveTemplate(phrase: String, wav: ByteArray): String? {
+        val v = voice ?: return null
+        val dir = "$SPEECH_TEST_DIR/$phrase"
+        val takes = v.list(dir).count { it.endsWith(".wav") }
+        val name = "$dir/${takes % TAKES + 1}.wav"
+        v.keep(wav, name)
+        templates = null
+        recordedPhrases = countRecorded()
+        return name
+    }
+
+    /** A move made by hand (on the board or typed): what a pending recording meant. */
+    private fun learnPending(position: Position, move: Move) {
+        val wav = pendingRecording ?: return
+        pendingRecording = null
+        val phrase = SpeechTest.phraseOf(position, move)
+        saveTemplate(phrase, wav)
+        flash = "Gemerkt: so sagst du „$phrase“."
+    }
+
+    /** A move on the board, in the editor if one is open, otherwise in the puzzle. */
+    fun boardMove(move: Move) {
+        val position = editor?.position ?: session?.attempt?.position
+        if (position != null && position.isLegal(move)) learnPending(position, move)
+        if (editor != null) editorPlay(move) else submitMove(move)
+    }
+
+    /**
+     * „Falsch erkannt“: the last recording was not that move. Its link to it goes, in the editor
+     * the move is taken back, and the next move played or typed gets the recording.
+     */
+    fun wrongRecognition() {
+        val wav = lastRecording ?: return
+        lastLearned?.let { voice?.delete(it) }
+        templates = null
+        recordedPhrases = countRecorded()
+        if (lastInEditor && editor != null) editorUndo()
+        pendingRecording = wav
+        lastRecording = null
+        lastLearned = null
+        canCorrect = false
+        heard = null
+        flash = "Zieh oder tipp den Zug, den du gesagt hast – ich merke mir, wie er klingt."
+    }
+
+    /**
+     * A move or command said (recognized by sound or by Whisper, [recording] what was said) or
+     * typed into the field: played in the editor if one is open, otherwise in the puzzle.
+     */
+    fun onSpoken(transcript: String, bySound: Boolean = false, recording: ByteArray? = null) {
         val text = transcript.trim()
         if (text.isEmpty()) return
         heard = if (bySound) "$text (am Klang erkannt)" else text
+        canCorrect = false
         // What the training taught comes first: "night of free" was "knight f3".
         val read = VoiceMove.read(learned[VoiceMove.normalize(text)] ?: text)
+        read.command?.let { command ->
+            // A command said is one more way it sounds, too.
+            if (recording != null && !bySound) saveTemplate(command.words.first(), recording)
+        }
         when (read.command) {
             VoiceCommand.BOARD -> return peek()
             VoiceCommand.REPEAT -> return lastSaid?.let(speaker::say) ?: Unit
@@ -1755,9 +1828,21 @@ class AppViewModel(
         if (move == null) {
             // Understood as a move, just not one that can be played here: say so, rather than "not understood".
             val understood = read.target != null || read.castle != null
-            flash = if (understood) "„$text“ (${read.describe()}) geht hier nicht." else "Nicht verstanden: „$text“"
+            if (recording != null) pendingRecording = recording
+            flash = (if (understood) "„$text“ (${read.describe()}) geht hier nicht." else "Nicht verstanden: „$text“") +
+                if (recording != null) " Zieh oder tipp den gemeinten Zug – ich merke mir, wie du ihn sagst." else ""
             say(if (understood) "Not possible" else "Say again")
             return
+        }
+        if (recording == null) {
+            // Typed: a recording waiting for its move gets this one.
+            learnPending(position, move)
+        } else {
+            lastRecording = recording
+            lastLearned = if (bySound) null else saveTemplate(SpeechTest.phraseOf(position, move), recording)
+            lastInEditor = e != null
+            canCorrect = true
+            pendingRecording = null
         }
         if (e != null) {
             say(VoiceMove.toSpokenEnglish(position, move))
@@ -1771,9 +1856,14 @@ class AppViewModel(
      * Opens the speech training where it was left: the moves of the own variants first, then the
      * common ones; what was said before is in its table.
      */
-    fun openSpeechTest() {
+    fun openSpeechTest() = openTraining(common = false)
+
+    /** The training with the common opening moves after the own ones. */
+    fun openCommonTraining() = openTraining(common = true)
+
+    private fun openTraining(common: Boolean) {
         prefs = null
-        val lab = VoiceLab(sample = false, phrases = SpeechTest.phrases(library.active))
+        val lab = VoiceLab(sample = false, phrases = SpeechTest.phrases(library.active, common))
         val recorded = voice?.list(SPEECH_TEST_DIR)?.mapNotNull { it.split('/').getOrNull(1) }?.toSet().orEmpty()
         val table = speechTestTable().toMap()
         lab.phrases.forEachIndexed { i, p -> if (p in recorded) lab.heard[i] = table[p].orEmpty() }
@@ -1822,11 +1912,7 @@ class AppViewModel(
         val i = lab.index
         val phrase = lab.phrases.getOrNull(i) ?: return
         lab.heard[i] = text
-        val dir = "$SPEECH_TEST_DIR/$phrase"
-        val takes = v.list(dir).count { it.endsWith(".wav") }
-        v.keep(wav, "$dir/${takes % TAKES + 1}.wav")
-        templates = null
-        recordedPhrases = countRecorded()
+        saveTemplate(phrase, wav)
         // One line per phrase said, as a table: what was meant, what Whisper wrote, whether it reads right.
         val said = speechTestTable().toMap() + (phrase to text)
         val table = said.entries.mapIndexed { n, (p, h) ->
@@ -1848,11 +1934,6 @@ class AppViewModel(
         }
         lab.saved = v.keep(wav, "$VOICE_DIR/referenz.wav")
         v.keep(VOICE_SAMPLE_TEXT.encodeToByteArray(), "$VOICE_DIR/referenz.txt")
-    }
-
-    init {
-        // The first start with a microphone: straight into saying the moves in, so recognition knows the voice.
-        if (voice != null && voice.problem() == null && recordedPhrases == 0) openSpeechTest()
     }
 
     // ---- Export / import -----------------------------------------------------------------

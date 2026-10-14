@@ -381,20 +381,25 @@ object SpeechTest {
         return words.joinToString(" ")
     }
 
-    val PHRASES: List<String> = MOVES.map(::phrase) +
-        listOf("pawn to e4", "knight to c3", "bishop to e2") +
-        VoiceCommand.entries.map { it.words.first() }
+    /** The common opening moves. */
+    val PHRASES: List<String> = MOVES.map(::phrase) + listOf("pawn to e4", "knight to c3", "bishop to e2")
+
+    /** The commands, as their first word. */
+    val COMMANDS: List<String> = VoiceCommand.entries.map { it.words.first() }
 
     /**
-     * What to say in: the moves of the user's own variants first (those are the ones that will be
-     * said when practising), then the common ones and the commands.
+     * What to say in: the moves of the user's own variants (those are the ones said when
+     * practising) and the commands; with [common], the common opening moves after them.
      */
-    fun phrases(variants: List<Variant>): List<String> {
+    fun phrases(variants: List<Variant>, common: Boolean = false): List<String> {
         val own = variants.flatMap { v ->
-            v.moves.mapIndexed { i, uci -> phrase(v.positions[i].san(Move.fromUci(uci)).trimEnd('+', '#')) }
+            v.moves.mapIndexed { i, uci -> phraseOf(v.positions[i], Move.fromUci(uci)) }
         }
-        return (own + PHRASES).distinct()
+        return (own + COMMANDS + if (common) PHRASES else emptyList()).distinct()
     }
+
+    /** [move] in [position] as a phrase of the training: "knight f3", "e takes d5". */
+    fun phraseOf(position: Position, move: Move): String = phrase(position.san(move).trimEnd('+', '#'))
 
     /** What the app says for [phrase]: "knight f 3", so that text-to-speech says "f three". */
     fun speech(phrase: String): String = phrase.replace(Regex("([a-h])([1-8])"), "$1 $2")

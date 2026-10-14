@@ -105,11 +105,17 @@ fun CoveredBoard(vm: AppViewModel, moves: List<String>, modifier: Modifier = Mod
 fun VoiceStatus(vm: AppViewModel, center: Boolean = false) {
     val (text, color) = when {
         vm.listening -> "🎙 Ich höre … (Leertaste loslassen)" to LISTEN
-        vm.transcribing -> "✍ schreibe auf …" to INFO
+        vm.transcribing -> "✍ erkenne …" to INFO
+        vm.pendingRecording != null -> "Welcher Zug war gemeint? Zieh oder tipp ihn – ich merke mir, wie du ihn sagst." to INFO
         vm.heard != null -> "Gehört: „${vm.heard}“" to MaterialTheme.colorScheme.onSurfaceVariant
         else -> return
     }
-    Text(text, color = color, fontWeight = FontWeight.SemiBold, textAlign = if (center) TextAlign.Center else TextAlign.Start)
+    Column(horizontalAlignment = if (center) Alignment.CenterHorizontally else Alignment.Start) {
+        Text(text, color = color, fontWeight = FontWeight.SemiBold, textAlign = if (center) TextAlign.Center else TextAlign.Start)
+        if (vm.canCorrect && vm.voiceLab == null && !vm.listening && !vm.transcribing) {
+            TextButton(onClick = vm::wrongRecognition) { Text("Falsch erkannt") }
+        }
+    }
 }
 
 /**
@@ -178,9 +184,9 @@ fun VoiceLabScreen(vm: AppViewModel, lab: VoiceLab, modifier: Modifier = Modifie
 private fun SpeechTestPage(vm: AppViewModel, lab: VoiceLab) {
     val phrases = lab.phrases
     Text(
-        "Damit die App deine Stimme kennt: sie sagt einen Zug vor, du sagst ihn nach. Erkannt wird später am Klang – " +
-            "sag es so, wie du es beim Üben sagen wirst (auch auf Deutsch, z. B. „kurze Rochade“, wenn du das lieber sagst). " +
-            "Zuerst kommen die Züge deiner eigenen Varianten. Aufhören geht jederzeit, beim nächsten Mal geht es hier weiter.",
+        "Freiwillig: die App lernt deine Stimme auch beim Üben – jeder erkannte Zug wird gemerkt, und was sie nicht versteht, " +
+            "verbindest du einfach mit dem Zug, den du dann ziehst oder tippst. Hier geht es schneller: sie sagt die Züge deiner " +
+            "Varianten und die Kommandos vor, du sagst sie nach – so, wie du es beim Üben sagen wirst (auch auf Deutsch, z. B. „kurze Rochade“).",
         style = MaterialTheme.typography.bodyMedium,
     )
     Spacer(Modifier.height(16.dp))
@@ -212,6 +218,7 @@ private fun SpeechTestPage(vm: AppViewModel, lab: VoiceLab) {
         Spacer(Modifier.height(4.dp))
         Text("Die Aufnahmen liegen in ${vm.dataLocation}/$SPEECH_TEST_DIR.", style = MaterialTheme.typography.bodySmall)
         if (lab.said < phrases.size) TextButton(onClick = { vm.speechTestStep(-phrases.size) }) { Text("Zu den übersprungenen") }
+        if (phrases.size < SpeechTest.PHRASES.size) TextButton(onClick = vm::openCommonTraining) { Text("Weitere gängige Züge einsprechen") }
     }
     if (lab.said > 0) {
         Spacer(Modifier.height(20.dp))

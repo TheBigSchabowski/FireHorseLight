@@ -80,7 +80,7 @@ fun EditorScreen(vm: AppViewModel, e: EditorState, modifier: Modifier = Modifier
                     lastMove = e.boardMoves.lastOrNull(),
                     marks = emptyMap(),
                     interactive = true,
-                    onMove = vm::editorPlay,
+                    onMove = vm::boardMove,
                     modifier = modifier,
                 )
             },

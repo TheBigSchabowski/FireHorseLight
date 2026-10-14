@@ -52,11 +52,25 @@ class BlindTest {
         /** The microphone hands over silence, as when macOS does not let the app have it. */
         var silent = false
 
+        /** What is "said" into the microphone: each text has a sound of its own, three tones picked by it. */
+        var sound = ""
+
+        /** How long each of the three tones is. */
+        var toneMs = 300
+
         override fun stop(): ByteArray? {
             if (!recording) return null
             recording = false
-            // Six seconds of a loud square wave, or of nothing.
-            return ByteArray(44 + 32_000 * 6) { i -> if (silent || i < 44) 0 else if ((i / 2) % 40 < 20) 0x40 else -0x40 }
+            val seed = sound.lowercase().filter { it.isLetterOrDigit() }.hashCode()
+            val tones = List(3) { 200 + ((seed shr (it * 5)) and 31) * 90 }
+            val samples = tones.flatMap { hz -> List(16 * toneMs) { i -> if (silent) 0 else (8000 * kotlin.math.sin(2 * Math.PI * hz * i / 16_000)).toInt() } }
+            val out = ByteArray(44 + samples.size * 2)
+            "RIFF".encodeToByteArray().copyInto(out)
+            samples.forEachIndexed { i, s ->
+                out[44 + 2 * i] = (s and 0xFF).toByte()
+                out[45 + 2 * i] = (s shr 8).toByte()
+            }
+            return out
         }
         override fun cancel() {
             recording = false
@@ -65,17 +79,18 @@ class BlindTest {
         override fun transcribe(wav: ByteArray, prompt: String): String = next
         override fun read(name: String): ByteArray? = kept[name]
         override fun list(dir: String): List<String> = kept.keys.filter { it.startsWith("$dir/") }
+        override fun delete(name: String) {
+            kept.remove(name)
+        }
         override fun keep(data: ByteArray, name: String): String = name.also { kept[it] = data }
     }
 
     private val mic = Voice()
     private val mouth = Mouth()
 
-    /** With a microphone and nothing recorded yet the training opens at the start; the tests start without it. */
-    private fun app(training: Boolean = false) = AppViewModel(Store(Memory()), voice = mic, speaker = mouth).apply {
+    private fun app() = AppViewModel(Store(Memory()), voice = mic, speaker = mouth).apply {
         uiScope = CoroutineScope(Dispatchers.Unconfined)
         transcribeOn = Dispatchers.Unconfined
-        if (!training) closeVoiceLab()
     }
 
     private fun AppViewModel.addVariant(opening: String, playWhite: Boolean, vararg sans: String) {
@@ -92,9 +107,13 @@ class BlindTest {
         saveEditor()
     }
 
-    /** Space held long enough to be speech, then let go: voxtype "writes down" [said]. */
-    private fun AppViewModel.speak(said: String) {
+    /**
+     * Space held long enough to be speech, then let go: Whisper "writes down" [said]; the recording
+     * sounds like [sound] (by default like what is written down).
+     */
+    private fun AppViewModel.speak(said: String, sound: String = said) {
         mic.next = said
+        mic.sound = sound
         assertTrue(voiceDown())
         Thread.sleep(TAP_MS + 20L)
         assertFalse(voiceUp())
@@ -223,27 +242,89 @@ class BlindTest {
     }
 
     @Test
-    fun theFirstStartWithAMicrophoneOpensTheTraining() {
-        assertNotNull(app(training = true).voiceLab)
-        val trained = Voice().apply { kept["$SPEECH_TEST_DIR/e4/1.wav"] = ByteArray(10) }
-        assertNull(AppViewModel(Store(Memory()), voice = trained, speaker = mouth).voiceLab)
-        assertNull(AppViewModel(Store(Memory()), speaker = mouth).voiceLab)
+    fun theTrainingIsNotForcedAndHasTheOwnMovesAndTheCommands() {
+        val vm = app()
+        assertNull(vm.voiceLab)
+        vm.addVariant("Italienisch", true, "e4", "e5")
+        vm.openSpeechTest()
+        assertEquals(listOf("e4", "e5", "board", "repeat", "hint", "next", "restart", "undo"), vm.voiceLab!!.phrases)
+        vm.openCommonTraining()
+        assertTrue(vm.voiceLab!!.phrases.size > 120)
     }
 
     @Test
     fun afterTheTrainingAMoveIsRecognizedBySoundEvenWhenWhisperGetsItWrong() {
-        val vm = app(training = true)
-        // The first phrase of the training is e4: said in once.
-        assertEquals("e4", vm.voiceLab!!.phrases.first())
-        vm.speak("You")
-        vm.closeVoiceLab()
+        val vm = app()
         vm.addVariant("Italienisch", true, "e4", "e5")
+        vm.openSpeechTest()
+        assertEquals("e4", vm.voiceLab!!.phrases.first())
+        vm.speak("You", sound = "my e4")
+        vm.closeVoiceLab()
         vm.startCram()
-        // The same sound again; Whisper would write nonsense, the recording decides.
-        vm.speak("You")
+        // The same sound again; Whisper writes nonsense, the recording decides.
+        vm.speak("You", sound = "my e4")
         // Not blind: both sides are the user's, so no answer comes.
         assertEquals(listOf("1. e4"), vm.session!!.attempt!!.played)
         assertEquals("e4 (am Klang erkannt)", vm.heard)
+    }
+
+    @Test
+    fun aRecognizedMoveIsLearnedAndHeardBySoundNextTime() {
+        val vm = app()
+        vm.addVariant("Italienisch", true, "e4", "e5")
+        vm.startCram()
+        vm.speak("e4", sound = "my e4")
+        assertTrue("$SPEECH_TEST_DIR/e4/1.wav" in mic.kept)
+        vm.restartCurrent()
+        vm.speak("You", sound = "my e4")
+        assertEquals("e4 (am Klang erkannt)", vm.heard)
+        assertEquals(listOf("1. e4"), vm.session!!.attempt!!.played)
+    }
+
+    @Test
+    fun whatWasNotUnderstoodIsLinkedToTheMovePlayedNext() {
+        val vm = app()
+        vm.addVariant("Italienisch", true, "e4", "e5")
+        vm.toggleBlind()
+        vm.startCram()
+        vm.speak("Night of free banana", sound = "ee for")
+        assertNotNull(vm.pendingRecording)
+        assertEquals(0, vm.session!!.attempt!!.played.size)
+        // Typed into the field: played, and the recording is kept as e4.
+        vm.onSpoken("e4")
+        assertNull(vm.pendingRecording)
+        assertTrue("$SPEECH_TEST_DIR/e4/1.wav" in mic.kept)
+        assertTrue(vm.flash!!.contains("e4"))
+        vm.restartCurrent()
+        vm.speak("banana", sound = "ee for")
+        assertEquals("e4 (am Klang erkannt)", vm.heard)
+    }
+
+    @Test
+    fun aMoveOnTheBoardTakesThePendingRecordingToo() {
+        val vm = app()
+        vm.newVariant()
+        vm.speak("hmm", sound = "springer f drei")
+        assertNotNull(vm.pendingRecording)
+        vm.boardMove(Position.START.parseSan("Nf3")!!)
+        assertTrue("$SPEECH_TEST_DIR/knight f3/1.wav" in mic.kept)
+        assertEquals(1, vm.editor!!.moves.size)
+    }
+
+    @Test
+    fun wronglyRecognizedIsUnlinkedAndTakenBackInTheEditor() {
+        val vm = app()
+        vm.newVariant()
+        // Said "d4", but Whisper wrote "e4".
+        vm.speak("e4", sound = "dee four")
+        assertTrue("$SPEECH_TEST_DIR/e4/1.wav" in mic.kept)
+        assertTrue(vm.canCorrect)
+        vm.wrongRecognition()
+        assertTrue("$SPEECH_TEST_DIR/e4/1.wav" !in mic.kept)
+        assertTrue(vm.editor!!.moves.isEmpty())
+        vm.onSpoken("d4")
+        assertTrue("$SPEECH_TEST_DIR/d4/1.wav" in mic.kept)
+        assertEquals(listOf("d2d4"), vm.editor!!.moves.map { it.uci })
     }
 
     @Test
@@ -261,6 +342,7 @@ class BlindTest {
     fun theVoiceSampleIsKeptWithItsText() {
         val vm = app()
         vm.openVoiceSample()
+        mic.toneMs = 2000
         vm.speak("")
         assertEquals("$VOICE_DIR/referenz.wav", vm.voiceLab!!.saved)
         assertTrue("$VOICE_DIR/referenz.txt" in mic.kept)
