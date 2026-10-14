@@ -4,8 +4,18 @@ Blindschach mit Stimme, für macOS, Linux und Android. Ein Ableger von
 [FireHorse](https://github.com/TheBigSchabowski/FireHorse).
 
 Du sagst deinen Zug auf Englisch („e4“, „knight f3“, „bishop c4“, „c takes d4“, „castle kingside“),
-die App antwortet mit einem Zug aus deinen FireHorse-Varianten oder aus der lichess-Datenbank und
-spricht ihn laut aus. Das Brett bleibt verdeckt, ein Doppeltipp blendet es ein und wieder aus.
+die App antwortet und spricht ihren Zug laut aus. Das Brett bleibt verdeckt, ein Doppeltipp (oder „board“)
+blendet es ein und wieder aus.
+
+- **🎯 Blind üben:** Die App nimmt deine Varianten der Reihe nach (zufällig, alle oder eine Eröffnung) und
+  zeigt nur ihren Namen. Du spielst deine Seite aus dem Kopf, die App die andere. Ein Zug, der nicht in
+  der Variante steht, wird nicht gespielt: „Wrong“ bzw. „Other variant“, wenn er zu einer anderen gespeicherten
+  Variante gehört. Zugumstellungen aus deiner Sammlung zählen. Am Ende wird das Brett aufgedeckt.
+  Kommandos: `hint` (sagt den richtigen Zug), `next`, `restart`, `repeat`, `board`.
+- **♟ Frei spielen:** Die App antwortet aus deinen Varianten oder aus der lichess-Datenbank. `undo` nimmt
+  deinen Zug zurück, „Als Variante speichern“ übernimmt die Partie in den Editor.
+- **📚 Meine Varianten:** Varianten anlegen (Züge auf dem Brett spielen oder ansagen, Eröffnung, Name und
+  Seite eintragen), bearbeiten, löschen und einzeln oder je Eröffnung blind üben.
 
 Die Spracheingabe kommt von einem Diktierprogramm deiner Wahl (z. B. Voxtype/Whisper, die Diktierfunktion
 von macOS oder die Android-Tastatur), das den Text ins Eingabefeld schreibt. Typische Hörfehler wie

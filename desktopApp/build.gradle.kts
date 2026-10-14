@@ -14,6 +14,9 @@ kotlin {
 dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
+    // Dispatchers.Main on the desktop (the view model answers moves on it); Android has its own.
+    // The same version Compose brings along.
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
 }
 
 // jpackage lives in a full JDK; the JDK 21 that Gradle provisions may be a JBR without it.
