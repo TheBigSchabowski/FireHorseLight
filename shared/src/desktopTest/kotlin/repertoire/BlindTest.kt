@@ -143,6 +143,8 @@ class BlindTest {
         assertTrue(vm.boardCovered)
         vm.speak("banana")
         assertEquals("Say again", mouth.said.last())
+        vm.speak("knight f6")
+        assertEquals("Not possible", mouth.said.last())
         assertNotNull(vm.flash)
         assertEquals(0, vm.session!!.attempt!!.played.size)
     }

@@ -106,57 +106,33 @@ fun main() {
         vm.editVariant(vm.library.variants.last(), fromStart = true)
         repeat(5) { vm.editorStepForward() }
     }
-    val theory = "Gegen den Aufbau mit @6. f3 und g4 spielt Schwarz ((e6)), vorher kam @3... cxd4.\nWenn Weiß g4 zieht, dann ((Nfd7|Sfd7::Springer)) und später ((b5))."
-    render("editor-theory") { vm ->
+    // Blind: the board covered, the other side played and said, a move heard.
+    fun AppViewModel.blind() {
+        sample()
+        toggleBlind()
+        practice(library.variants.last().id)
+        onSpoken("Knight f3.")
+    }
+    render("blind-ueben") { it.blind() }
+    render("blind-aufgedeckt") { vm -> vm.blind(); vm.peek() }
+    render("blind-gehoert-falsch") { vm -> vm.blind(); vm.onSpoken("banana") }
+    render("blind-editor") { vm ->
         vm.sample()
-        vm.editVariant(vm.library.variants.last())
-        vm.editor!!.theory = androidx.compose.ui.text.input.TextFieldValue(theory)
-        vm.toggleTheory()
+        vm.toggleBlind()
+        vm.newVariant()
+        for (said in listOf("e4", "c5", "knight f3")) vm.onSpoken(said)
     }
-    fun AppViewModel.solveWithTheory() {
-        sample()
-        editVariant(library.variants.last())
-        editor!!.theory = androidx.compose.ui.text.input.TextFieldValue(theory)
-        saveEditor()
-        practice(library.variants.last().id)
-        var p = Position.START
-        for (san in "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 f3 e6".split(" ")) {
-            val move = p.parseSan(san)!!
-            submitMove(move)
-            p = p.play(move)
-        }
-        setGapInput(0, "e6")
-        setGapInput(1, "Sfd7")
-        setGapInput(2, "b4")
+    render("spracherkennung") { vm ->
+        vm.openSpeechTest()
+        val lab = vm.voiceLab!!
+        lab.heard += listOf("E4.", "d4", "Go on to C5.", "a6", "B5.", "F3", "G6.", "H4.", "9-3")
+        lab.index = lab.heard.size
     }
-    render("theory-quiz") { it.solveWithTheory() }
-    render("theory-checked") { vm -> vm.solveWithTheory(); vm.checkGaps() }
-    render("theory-link") { vm -> vm.solveWithTheory(); vm.showPly(6) }
-    fun AppViewModel.withDrawing() {
-        sample()
-        editVariant(library.variants.last())
-        editorGoTo(9)
-        editorNewDrawing()
-        for (m in listOf("4:#d5", "2:b7b5", "f3g4", "3:e4", "5:c6")) editorDrawingMark(repertoire.core.Mark.parse(m))
-        editorDrawingQuestion("Was will Weiß, was Schwarz?")
+    render("stimmprobe") { vm -> vm.openVoiceSample() }
+    render("hilfe-blind") { vm ->
+        vm.sample()
+        vm.openHelp(HelpTopic.BLIND)
     }
-    render("drawing-edit") { it.withDrawing() }
-    render("drawing-view") { vm -> vm.withDrawing(); vm.editorFinishDrawing() }
-    fun AppViewModel.askDrawing() {
-        withDrawing()
-        saveEditor()
-        practice(library.variants.last().id)
-        for (uci in session!!.attempt!!.quiz.variant.moves) submitMove(Move.fromUci(uci))
-        drawingMark(repertoire.core.Mark.parse("4:#d5"))
-        drawingMark(repertoire.core.Mark.parse("g2g4"))
-    }
-    render("drawing-quiz") { it.askDrawing() }
-    render("farben") { vm ->
-        vm.withDrawing()
-        vm.setPenHex(4, "#7FFFD4", "Aquamarin")
-        vm.run(Command.COLORS)
-    }
-    render("drawing-checked") { vm -> vm.askDrawing(); vm.confirm() }
     render("single-move") { vm ->
         vm.sample()
         vm.practiceMoves(vm.library.variants.last().id)
@@ -196,13 +172,6 @@ fun main() {
         vm.editVariant(vm.library.variants.first(), fromStart = true)
         repeat(5) { vm.editorStepForward() }
         for (san in listOf("Nc6", "Nc3", "g6")) vm.editorPlay(vm.editor!!.position.parseSan(san)!!)
-    }
-    render("notizen") { vm ->
-        vm.sample()
-        vm.saveNotes(repertoire.core.Library.GENERAL_NOTES, "Erst entwickeln, dann angreifen.")
-        vm.saveNotes("Sizilianisch", "Gegen f3 (English Attack): ...e6, ...b5, ...h5 nicht vergessen.\nTypischer Plan: Damenflügel-Angriff.")
-        vm.editVariant(vm.library.variants.first())
-        vm.run(Command.NOTES)
     }
     render("einfuegen-alles") { vm ->
         vm.sample()
@@ -253,7 +222,6 @@ fun main() {
         vm.sample()
         vm.practice(vm.library.variants.last().id)
         vm.run(Command.NEW_VARIANT)
-        vm.run(Command.DRAW)
     }
     render("einstellungen") { vm ->
         vm.sample()

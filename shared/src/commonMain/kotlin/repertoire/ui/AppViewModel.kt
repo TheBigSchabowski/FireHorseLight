@@ -1674,8 +1674,10 @@ class AppViewModel(
         }
         val move = VoiceMove.match(read, position) ?: VoiceMove.parseSpokenEnglish(text, position)
         if (move == null) {
-            flash = "Nicht verstanden: „$text“"
-            say("Say again")
+            // Understood as a move, just not one that can be played here: say so, rather than "not understood".
+            val understood = read.target != null || read.castle != null
+            flash = if (understood) "„$text“ (${read.describe()}) geht hier nicht." else "Nicht verstanden: „$text“"
+            say(if (understood) "Not possible" else "Say again")
             return
         }
         if (e != null) {

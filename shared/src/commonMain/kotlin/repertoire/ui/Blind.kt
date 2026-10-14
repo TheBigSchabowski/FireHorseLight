@@ -79,7 +79,7 @@ fun CoveredBoard(vm: AppViewModel, moves: List<String>, modifier: Modifier = Mod
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             )
-            if (moves.isNotEmpty()) {
+            if (moves.size > 1) {
                 Spacer(Modifier.height(16.dp))
                 Text(compactMoves(moves), color = Color(0xFFB0B0B0), textAlign = TextAlign.Center)
             }

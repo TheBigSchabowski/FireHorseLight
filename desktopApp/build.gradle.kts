@@ -67,7 +67,7 @@ compose.desktop {
 
 // jpackage works out the .deb dependencies from the libraries installed on the build machine. A server or
 // container without the X11 libraries AWT loads would leave them out, and the app would not start on a desktop without them.
-// espeak-ng is the English voice when the Qwen bridge is not there (VoiceIo.desktop.kt).
+// espeak-ng says the moves on Linux (VoiceIo.desktop.kt).
 // No spaces in the list: jpackage reads its arguments from a file that splits at them.
 tasks.withType<AbstractJPackageTask>().configureEach {
     if (targetFormat == TargetFormat.Deb) freeArgs.addAll("--linux-package-deps", "libxtst6,libxi6,libxrandr2,espeak-ng")
@@ -75,3 +75,10 @@ tasks.withType<AbstractJPackageTask>().configureEach {
 
 // The same icon.png is the window icon on Linux and Windows (see Main.kt).
 tasks.processResources { from("icon.png") }
+
+tasks.register<JavaExec>("renderScreens") {
+    description = "Renders the main screens at phone and desktop size into build/screens."
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass = "repertoire.desktop.RenderScreensKt"
+    workingDir = projectDir
+}
