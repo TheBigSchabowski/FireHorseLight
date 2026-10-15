@@ -44,10 +44,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import repertoire.core.Position
 import repertoire.core.SpeechTest
 import repertoire.core.VOICE_SAMPLE_TEXT
 import repertoire.core.VoiceMove
-import repertoire.core.compactMoves
 
 private val COVER = Color(0xFF121212)
 private val COVER_EDGE = Color(0xFF3A3A3A)
@@ -56,11 +56,11 @@ private val INFO = Color(0xFF90CAF9)
 private val GOOD = Color(0xFF7BC67B)
 
 /**
- * The board, covered: the last move big, the moves so far small underneath. A double tap
- * uncovers it (as do Ctrl+B n and "board").
+ * The board, covered – and the moves too: they are heard, not read ("repeat" says the last one
+ * again). A double tap uncovers it (as do Ctrl+B n and "board").
  */
 @Composable
-fun CoveredBoard(vm: AppViewModel, moves: List<String>, modifier: Modifier = Modifier) {
+fun CoveredBoard(vm: AppViewModel, position: Position, modifier: Modifier = Modifier) {
     val touch = LocalTouch.current
     Box(
         modifier
@@ -71,18 +71,15 @@ fun CoveredBoard(vm: AppViewModel, moves: List<String>, modifier: Modifier = Mod
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("🙈", fontSize = 56.sp)
+            Spacer(Modifier.height(8.dp))
+            // Only how far it is: which move it is, is the player's to know.
             Text(
-                moves.lastOrNull() ?: "Grundstellung",
-                color = Color.White,
-                fontSize = 40.sp,
-                lineHeight = 48.sp,
-                fontWeight = FontWeight.Bold,
+                "Zug ${position.fullmoveNumber} – " + if (position.whiteToMove) "Weiß am Zug" else "Schwarz am Zug",
+                color = Color(0xFFB0B0B0),
+                style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
-            if (moves.size > 1) {
-                Spacer(Modifier.height(16.dp))
-                Text(compactMoves(moves), color = Color(0xFFB0B0B0), textAlign = TextAlign.Center)
-            }
             Spacer(Modifier.height(24.dp))
             VoiceStatus(vm, center = true)
             Spacer(Modifier.height(16.dp))
@@ -90,7 +87,7 @@ fun CoveredBoard(vm: AppViewModel, moves: List<String>, modifier: Modifier = Mod
                 if (touch) {
                     "Zug ins Feld unten diktieren · zweimal tippen deckt das Brett auf"
                 } else {
-                    "Leertaste halten und den Zug sagen · zweimal klicken oder ${vm.library.settings.shortcutLabel(Command.PEEK)} deckt auf"
+                    "Leertaste halten und den Zug sagen · „repeat“ wiederholt die letzte Ansage · zweimal klicken oder ${vm.library.settings.shortcutLabel(Command.PEEK)} deckt auf"
                 },
                 color = Color(0xFF8A8A8A),
                 style = MaterialTheme.typography.bodySmall,

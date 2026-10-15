@@ -98,7 +98,7 @@ fun TrainingScreen(vm: AppViewModel, session: TrainingSession, modifier: Modifie
         BoardWithPanel(
             board = { modifier ->
                 if (vm.boardCovered) {
-                    CoveredBoard(vm, attempt.played, modifier)
+                    CoveredBoard(vm, attempt.position, modifier)
                 } else {
                     ChessBoard(
                         position = attempt.position,

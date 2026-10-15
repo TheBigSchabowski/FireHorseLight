@@ -73,7 +73,7 @@ fun EditorScreen(vm: AppViewModel, e: EditorState, modifier: Modifier = Modifier
         BoardWithPanel(
             board = { modifier ->
                 if (vm.boardCovered) {
-                    CoveredBoard(vm, e.boardMoves.runningFold(e.start) { p, m -> p.play(m) }.zip(e.boardMoves).map { (p, m) -> numberedSan(p, m) }, modifier)
+                    CoveredBoard(vm, e.position, modifier)
                 } else ChessBoard(
                     position = position,
                     whiteBottom = e.playWhite != vm.editorFlipped,
@@ -134,8 +134,11 @@ fun EditorScreen(vm: AppViewModel, e: EditorState, modifier: Modifier = Modifier
                 }
             }
             Spacer(Modifier.height(8.dp))
-            MoveList(vm, e)
-            SideLine(vm, e)
+            // Blind, the moves are heard, not read.
+            if (!vm.boardCovered) {
+                MoveList(vm, e)
+                SideLine(vm, e)
+            }
             Spacer(Modifier.height(8.dp))
             if (e.browsing) {
                 // Going through changes no move; to change them, switch over.
