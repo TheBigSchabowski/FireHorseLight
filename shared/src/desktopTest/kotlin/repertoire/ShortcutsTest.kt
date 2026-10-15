@@ -203,11 +203,11 @@ class ShortcutsTest {
         val vm = app()
         vm.keyCapture = KeyTarget.Of(Command.PASTE_PGN)
         // The key press that sets it is swallowed and runs nothing.
-        assertEquals(listOf(true, true, true), vm.key(Key.G, 'g'))
+        assertEquals(listOf(true, true, true), vm.key(Key.J, 'j'))
         assertNull(vm.keyCapture)
-        assertEquals('g', vm.library.settings.keyOf(Command.PASTE_PGN))
+        assertEquals('j', vm.library.settings.keyOf(Command.PASTE_PGN))
         vm.ctrlB()
-        vm.key(Key.G, 'g')
+        vm.key(Key.J, 'j')
         assertEquals(Command.PASTE_PGN, vm.paste?.kind)
         vm.cancelPaste()
         // x is free now.

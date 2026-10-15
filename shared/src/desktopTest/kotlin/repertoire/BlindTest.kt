@@ -48,6 +48,7 @@ class BlindTest {
         var recording = false
 
         override fun problem(): String? = null
+        override val canWriteDown = true
         override fun start(): Boolean = true.also { recording = true }
         /** The microphone hands over silence, as when macOS does not let the app have it. */
         var silent = false
@@ -81,6 +82,11 @@ class BlindTest {
         override fun list(dir: String): List<String> = kept.keys.filter { it.startsWith("$dir/") }
         override fun delete(name: String) {
             kept.remove(name)
+        }
+
+        val played = mutableListOf<String>()
+        override fun play(name: String) {
+            played += name
         }
         override fun keep(data: ByteArray, name: String): String = name.also { kept[it] = data }
     }
@@ -325,6 +331,60 @@ class BlindTest {
         vm.onSpoken("d4")
         assertTrue("$SPEECH_TEST_DIR/d4/1.wav" in mic.kept)
         assertEquals(listOf("d2d4"), vm.editor!!.moves.map { it.uci })
+    }
+
+    @Test
+    fun theGraphLinksRecordingsToOtherMoves() {
+        val vm = app()
+        vm.addVariant("Italienisch", true, "e4", "e5")
+        vm.newVariant()
+        vm.speak("e4", sound = "dee four")
+        vm.cancelEditor()
+        vm.run(repertoire.ui.Command.GRAPH)
+        assertTrue(vm.graphOpen)
+        val link = vm.voiceLinks().single()
+        assertEquals("e4", link.phrase)
+        // The own moves and the commands are there to link to.
+        assertEquals(listOf("e4", "e5", "board"), vm.graphPhrases(vm.voiceLinks()).take(3))
+        vm.playRecording(link.name)
+        assertEquals(listOf(link.name), mic.played)
+        // Tapped, then a typed move: it stands for d4 now.
+        vm.graphPicked = link.name
+        vm.relink(link.name, vm.phraseFor("d4")!!)
+        assertEquals(listOf("d4"), vm.voiceLinks().map { it.phrase })
+        assertNull(vm.graphPicked)
+        assertEquals("knight f3", vm.phraseFor("Nf3"))
+        assertEquals("kurze rochade", vm.phraseFor("Kurze Rochade"))
+        vm.deleteRecording(vm.voiceLinks().single().name)
+        assertTrue(vm.voiceLinks().isEmpty())
+        assertEquals(0, vm.recordedPhrases)
+    }
+
+    @Test
+    fun withoutAnnouncementsNothingIsSaid() {
+        val vm = app()
+        vm.addVariant("Sizilianisch", false, "e4", "c5", "Nf3")
+        vm.toggleBlind()
+        vm.setSpeakMoves(false)
+        vm.startCram()
+        vm.speak("c5")
+        assertEquals(3, vm.session!!.attempt!!.played.size)
+        assertTrue(mouth.said.isEmpty())
+    }
+
+    @Test
+    fun withoutWhisperWhatIsNotKnownBySoundWaitsForItsMove() {
+        // As on the phone: nothing is written down.
+        val vm = app()
+        vm.addVariant("Italienisch", true, "e4", "e5")
+        vm.startCram()
+        vm.speak("", sound = "ee for")
+        assertNotNull(vm.pendingRecording)
+        vm.boardMove(Position.START.parseSan("e4")!!)
+        assertTrue("$SPEECH_TEST_DIR/e4/1.wav" in mic.kept)
+        vm.restartCurrent()
+        vm.speak("", sound = "ee for")
+        assertEquals("e4 (am Klang erkannt)", vm.heard)
     }
 
     @Test

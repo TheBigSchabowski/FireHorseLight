@@ -10,14 +10,20 @@ Eröffnungsnotizen, dafür mit Blind-Üben und Sprache.
 - **Blind** (`Strg+B m` oder „Blind“ auf der Startseite) verdeckt das Brett beim Üben und im Editor. Die App spielt
   die Gegenseite deiner Variante und sagt ihre Züge auf Englisch an; du spielst nur deine Farbe, aus dem Kopf.
   Falsch: „No“ und der richtige Zug. Am Ende wird das Brett aufgedeckt. `Strg+B n` oder Doppelklick deckt zwischendurch auf.
-- **Züge sagen:** Leertaste halten, „knight f3“ sagen, loslassen – erkannt mit [voxtype](https://github.com/peteonrails/voxtype)
-  (Whisper), auch ohne Blind. Kurz tippen bleibt „Gut“ / „Weiter“. Das Feld unter dem verdeckten Brett nimmt Züge auch
-  getippt oder diktiert (voxtypes eigene Taste, am Handy das Mikrofon der Tastatur).
+- **Züge sagen:** Leertaste (oder den 🎙-Knopf, am Handy nur den) halten, Zug sagen, loslassen – beim Üben und im Editor,
+  auch ohne Blind. Kurz tippen bleibt „Gut“ / „Weiter“. `🔊 Ansage an/aus` schaltet die Ansagen ab; dann steht der
+  gespielte Zug auf dem verdeckten Brett.
+- **Die App lernt deine Stimme:** jeder erkannte Zug wird als Aufnahme gemerkt und beim nächsten Mal am Klang erkannt
+  (MFCC + DTW, nur unter den gerade möglichen Zügen) – egal ob „knight f3“ oder „Springer f3“. Was sie nicht kennt,
+  schreibt am Computer [voxtype](https://github.com/peteonrails/voxtype) (Whisper) auf, falls installiert; sonst
+  verbindest du die Aufnahme einfach mit dem Zug, den du dann ziehst oder tippst. „Falsch erkannt“ löst eine falsche
+  Zuordnung.
+- **Graph** (`Strg+B g`): links die Aufnahmen, rechts die Züge, dazwischen Linien; ziehen (am Handy: antippen) verbindet neu,
+  ▶ spielt ab, ✕ löscht.
+- **🎙 Training** (Startseite, freiwillig): die App sagt die Züge deiner Varianten und die Kommandos vor, du sagst sie nach.
 - **Kommandos:** `board`, `repeat`, `hint`, `next`, `restart`, `undo`.
 - **Varianten blind anlegen:** im Editor mit Blind sagst du die Züge, die App sagt sie zurück. Abspielen sagt die Züge an.
-- **Spracherkennung testen** und **Stimmprobe aufnehmen** unter Einstellungen → „Blind und Stimme“. Der Test speichert
-  jede Aufnahme mit dem, was voxtype daraus gemacht hat (`Spracherkennung/` im Datenordner); die Stimmprobe
-  (`Stimme/referenz.wav` + Text) ist für Qwen3-TTS, damit die Ansagen in deiner eigenen Stimme kommen.
+- **Stimmprobe aufnehmen** (Einstellungen → „Blind und Stimme“): `Stimme/referenz.wav` + Text, für Qwen3-TTS.
 
 ## Download
 
@@ -31,13 +37,15 @@ Unter [Releases](../../releases/latest):
 | Android | `FireHorseLight_<version>_android.apk` | Android 8.0+ |
 
 **macOS:** DMG öffnen, die App in „Programme“ ziehen; nicht mit einem Apple-Zertifikat signiert, beim ersten Start
-daher Rechtsklick → „Öffnen“. Für die Leertaste: `brew install --cask voxtype` und beim ersten Sprechen das Mikrofon erlauben.
+daher Rechtsklick → „Öffnen“. Beim ersten Sprechen das Mikrofon erlauben. Optional `brew install --cask voxtype`,
+dann wird auch aufgeschrieben, was die App noch nicht am Klang kennt.
 
 **Linux:** `sudo apt install ./FireHorseLight_<version>_linux-amd64.deb` installiert die App samt Java und Stimme
 (`espeak-ng`). Ältere Systeme (Ubuntu 22.04, Debian 12) nehmen das tar.gz: entpacken, `FireHorseLight/bin/FireHorseLight`
-starten; für die Stimme `espeak-ng` installieren. Für die Leertaste voxtype installieren.
+starten; für die Stimme `espeak-ng` installieren. voxtype ist optional (wie am Mac).
 
-**Android:** APK installieren („Unbekannte Apps installieren“ erlauben). Züge sagst du über das Mikrofon der Tastatur.
+**Android:** APK installieren („Unbekannte Apps installieren“ erlauben). Zum Sprechen den 🎙-Knopf halten (das Mikrofon wird
+beim ersten Mal erfragt); erkannt wird am Klang deiner Aufnahmen. Tippen und das Mikrofon der Tastatur gehen auch.
 
 ## Daten
 

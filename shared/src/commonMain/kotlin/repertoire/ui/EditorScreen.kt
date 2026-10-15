@@ -73,7 +73,7 @@ fun EditorScreen(vm: AppViewModel, e: EditorState, modifier: Modifier = Modifier
         BoardWithPanel(
             board = { modifier ->
                 if (vm.boardCovered) {
-                    CoveredBoard(vm, e.position, modifier)
+                    CoveredBoard(vm, e.position, e.boardMoves.lastOrNull()?.let { numberedSan(e.boardMoves.dropLast(1).fold(e.start) { p, m -> p.play(m) }, it) }, modifier)
                 } else ChessBoard(
                     position = position,
                     whiteBottom = e.playWhite != vm.editorFlipped,
@@ -93,11 +93,18 @@ fun EditorScreen(vm: AppViewModel, e: EditorState, modifier: Modifier = Modifier
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(onClick = vm::peek) { Text(if (vm.peeking) "Brett verdecken" else "Brett aufdecken") }
+                    SpeakToggle(vm)
+                }
+                Row {
                     VoiceStatus(vm)
                 }
                 Spacer(Modifier.height(12.dp))
-            } else if (vm.heard != null || vm.listening || vm.transcribing) {
-                VoiceStatus(vm)
+            } else if (vm.voice != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    HoldToTalk(vm)
+                    Spacer(Modifier.width(8.dp))
+                    VoiceStatus(vm)
+                }
                 Spacer(Modifier.height(8.dp))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

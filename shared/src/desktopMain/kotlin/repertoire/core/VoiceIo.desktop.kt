@@ -2,8 +2,6 @@ package repertoire.core
 
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.sound.sampled.AudioFormat
@@ -82,11 +80,10 @@ class DesktopVoiceInput(private val dataDir: File) : VoiceInput {
 
     private val voxtype: String? by lazy { findProgram("voxtype") }
 
-    override fun problem(): String? = when {
-        voxtype == null -> "voxtype ist nicht installiert (am Mac: brew install --cask voxtype)."
-        !AudioSystem.isLineSupported(DataLine.Info(TargetDataLine::class.java, format)) -> "Kein Mikrofon gefunden."
-        else -> null
-    }
+    override fun problem(): String? =
+        if (AudioSystem.isLineSupported(DataLine.Info(TargetDataLine::class.java, format))) null else "Kein Mikrofon gefunden."
+
+    override val canWriteDown: Boolean get() = voxtype != null
 
     @Synchronized
     override fun start(): Boolean {
@@ -124,7 +121,7 @@ class DesktopVoiceInput(private val dataDir: File) : VoiceInput {
         val pcm = synchronized(buffer) { buffer.toByteArray() }
         // Shorter than a fifth of a second: a tap, not speech.
         if (pcm.size < 16_000 * 2 / 5) return null
-        return wav(pcm)
+        return AudioMatch.wav(pcm)
     }
 
     @Synchronized
@@ -133,7 +130,8 @@ class DesktopVoiceInput(private val dataDir: File) : VoiceInput {
     }
 
     override fun transcribe(wav: ByteArray, prompt: String): String {
-        val program = voxtype ?: error(problem() ?: "voxtype fehlt.")
+        // Without voxtype nothing is written down: the recording waits for the move it meant.
+        val program = voxtype ?: return ""
         val file = File.createTempFile("firehorselight-", ".wav")
         try {
             file.writeBytes(wav)
@@ -158,6 +156,21 @@ class DesktopVoiceInput(private val dataDir: File) : VoiceInput {
         return root.walkTopDown().filter { it.isFile }.map { "$dir/" + it.relativeTo(root).invariantSeparatorsPath }.toList()
     }
 
+    override fun play(name: String) {
+        val file = File(dataDir, name).takeIf { it.isFile } ?: return
+        Thread({
+            runCatching {
+                AudioSystem.getAudioInputStream(file).use { stream ->
+                    val clip = AudioSystem.getClip()
+                    clip.open(stream)
+                    clip.start()
+                    Thread.sleep(clip.microsecondLength / 1000 + 100)
+                    clip.close()
+                }
+            }
+        }, "playback").apply { isDaemon = true }.start()
+    }
+
     override fun delete(name: String) {
         File(dataDir, name).delete()
     }
@@ -167,26 +180,5 @@ class DesktopVoiceInput(private val dataDir: File) : VoiceInput {
         file.parentFile?.mkdirs()
         file.writeBytes(data)
         return file.path
-    }
-
-    /** A WAV file around the raw samples. */
-    private fun wav(pcm: ByteArray): ByteArray {
-        val rate = format.sampleRate.toInt()
-        val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN).apply {
-            put("RIFF".toByteArray())
-            putInt(36 + pcm.size)
-            put("WAVE".toByteArray())
-            put("fmt ".toByteArray())
-            putInt(16)
-            putShort(1)
-            putShort(1)
-            putInt(rate)
-            putInt(rate * 2)
-            putShort(2)
-            putShort(16)
-            put("data".toByteArray())
-            putInt(pcm.size)
-        }
-        return header.array() + pcm
     }
 }

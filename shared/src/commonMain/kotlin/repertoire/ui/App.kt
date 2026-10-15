@@ -44,6 +44,7 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier, touch: Boolean = false)
                     when {
                         // The speech test and the voice sample take the whole screen; Space records there.
                         lab != null -> VoiceLabScreen(vm, lab)
+                        vm.graphOpen -> GraphScreen(vm)
                         // Preferences and help go on top of everything, which is still there afterwards.
                         prefs != null -> PreferencesScreen(vm, prefs)
                         // A variant started from inside a puzzle (Ctrl+B c) goes on top of it.

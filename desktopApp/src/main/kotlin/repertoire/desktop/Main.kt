@@ -59,6 +59,7 @@ fun main() = application {
                 viewModel.prefs != null -> (event.key == Key.Escape).also { if (it) viewModel.prefsBack() }
                 // The speech test and the voice sample: Escape closes them, nothing underneath is answered.
                 viewModel.voiceLab != null -> (event.key == Key.Escape).also { if (it) viewModel.closeVoiceLab() }
+                viewModel.graphOpen -> (event.key == Key.Escape).also { if (it) viewModel.graphOpen = false }
                 // Shift+S opens the list, Ctrl+N picks an opening, 8 turns the board round; not while a text field has the focus.
                 viewModel.shortcutKeys.handleDirect(event) -> true
                 // Arrow keys step through the moves of the variant being edited. A focused text

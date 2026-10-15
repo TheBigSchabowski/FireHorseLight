@@ -35,7 +35,11 @@ fun main() {
     ) {
         for ((label, size) in only) {
             val dir = Files.createTempDirectory("puzzle").toFile()
-            val vm = AppViewModel(Store(DirectoryStore(dir)), files).also(setup)
+            // Recordings for the voice screens, as if said in.
+            for ((phrase, takes) in listOf("e4" to 2, "c5" to 1, "knight f3" to 3, "board" to 1)) {
+                repeat(takes) { File(dir, "Spracherkennung/$phrase/${it + 1}.wav").apply { parentFile.mkdirs() }.writeBytes(repertoire.core.AudioMatch.wav(ByteArray(16_000))) }
+            }
+            val vm = AppViewModel(Store(DirectoryStore(dir)), files, voice = repertoire.core.DesktopVoiceInput(dir)).also(setup)
             val (w, h) = size
             ImageComposeScene(w * 2, h * 2, Density(2f)) { App(vm, touch = label == "phone") }.use { scene ->
                 // Images load on the first frames; render a few before taking the picture.
@@ -125,10 +129,15 @@ fun main() {
     render("spracherkennung") { vm ->
         vm.openSpeechTest()
         val lab = vm.voiceLab!!
-        lab.heard += listOf("E4.", "d4", "Go on to C5.", "a6", "B5.", "F3", "G6.", "H4.", "9-3")
-        lab.index = lab.heard.size
+        listOf("E4.", "Go on to C5.", "9-3").forEachIndexed { i, h -> lab.heard[i] = h }
+        lab.index = 3
     }
     render("stimmprobe") { vm -> vm.openVoiceSample() }
+    render("graph") { vm ->
+        vm.sample()
+        vm.run(Command.GRAPH)
+        vm.graphPicked = vm.voiceLinks()[1].name
+    }
     render("hilfe-blind") { vm ->
         vm.sample()
         vm.openHelp(HelpTopic.BLIND)

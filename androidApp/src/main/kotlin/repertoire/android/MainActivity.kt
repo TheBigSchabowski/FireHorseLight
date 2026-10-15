@@ -13,13 +13,21 @@ import androidx.compose.ui.Modifier
 import repertoire.core.DirectoryStore
 import repertoire.core.FilePicker
 import repertoire.core.Store
+import repertoire.core.AndroidVoiceInput
 import repertoire.core.appContext
+import android.Manifest
 import repertoire.ui.App
 import repertoire.ui.AppViewModel
 
 class MainActivity : ComponentActivity() {
     // Survives rotation only as long as the process does; the progress itself is saved after every answer.
-    private val viewModel by lazy { AppViewModel(Store(DirectoryStore(filesDir)), picker) }
+    private val viewModel: AppViewModel by lazy {
+        AppViewModel(Store(DirectoryStore(filesDir)), picker, voice = AndroidVoiceInput(this, filesDir) { askMicrophone.launch(Manifest.permission.RECORD_AUDIO) })
+    }
+
+    private val askMicrophone = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        viewModel.flash = if (granted) "Mikrofon erlaubt – jetzt den 🎙-Knopf halten und sprechen." else "Ohne Mikrofon geht das Sprechen nicht; Züge lassen sich weiter tippen."
+    }
 
     private var pendingSave: Pair<String, (String?) -> Unit>? = null
     private var pendingOpen: ((String?) -> Unit)? = null
@@ -64,9 +72,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             // Back leaves the preferences, the editor (which may sit on top of a puzzle), then the puzzle,
             // instead of closing the app.
-            BackHandler(enabled = viewModel.voiceLab != null || viewModel.prefs != null || viewModel.session != null || viewModel.editor != null) {
+            BackHandler(enabled = viewModel.voiceLab != null || viewModel.graphOpen || viewModel.prefs != null || viewModel.session != null || viewModel.editor != null) {
                 when {
                     viewModel.voiceLab != null -> viewModel.closeVoiceLab()
+                    viewModel.graphOpen -> viewModel.graphOpen = false
                     viewModel.prefs != null -> viewModel.prefsBack()
                     viewModel.editor != null -> viewModel.cancelEditor()
                     else -> viewModel.endSession()

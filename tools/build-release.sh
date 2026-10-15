@@ -25,9 +25,20 @@ hdiutil info | awk -v dir="$PWD/" '
 ./tools/android-sign.sh
 
 echo "==> Tests, DMG und APK..."
-./gradlew :shared:desktopTest :desktopApp:packageDmg :androidApp:assembleRelease
+./gradlew :shared:desktopTest :desktopApp:createDistributable :androidApp:assembleRelease
 
-DMG="desktopApp/build/compose/binaries/main/dmg/FireHorseLight-$VERSION.dmg"
+# The DMG is made from the app as createDistributable signed it: packageDmg signs it again without
+# the microphone entitlement, and the app then only ever hears silence.
+APP="desktopApp/build/compose/binaries/main/app/FireHorseLight.app"
+codesign -d --entitlements - "$APP" 2>&1 | grep -q com.apple.security.device.audio-input \
+  || { echo "Der App fehlt die Mikrofon-Berechtigung." >&2; exit 1; }
+STAGE="$(mktemp -d)"
+cp -R "$APP" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+DMG="desktopApp/build/FireHorseLight-$VERSION.dmg"
+rm -f "$DMG"
+hdiutil create -volname "FireHorseLight" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+rm -rf "$STAGE"
 APK="androidApp/build/outputs/apk/release/androidApp-release.apk"
 for artifact in "$DMG" "$APK"; do
   [ -s "$artifact" ] || { echo "Build-Artefakt fehlt: $artifact" >&2; exit 1; }

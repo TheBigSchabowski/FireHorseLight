@@ -98,7 +98,7 @@ fun TrainingScreen(vm: AppViewModel, session: TrainingSession, modifier: Modifie
         BoardWithPanel(
             board = { modifier ->
                 if (vm.boardCovered) {
-                    CoveredBoard(vm, attempt.position, modifier)
+                    CoveredBoard(vm, attempt.position, attempt.played.lastOrNull(), modifier)
                 } else {
                     ChessBoard(
                         position = attempt.position,
@@ -135,7 +135,14 @@ fun TrainingScreen(vm: AppViewModel, session: TrainingSession, modifier: Modifie
                 Spacer(Modifier.height(10.dp))
                 Text(compactMoves(attempt.played), style = MaterialTheme.typography.bodyMedium)
             }
-            if (!vm.blind && vm.heard != null || vm.listening || vm.transcribing) {
+            if (!vm.blind && vm.voice != null && !attempt.finished) {
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    HoldToTalk(vm)
+                    Spacer(Modifier.width(8.dp))
+                    VoiceStatus(vm)
+                }
+            } else if (!vm.blind && vm.heard != null || vm.listening || vm.transcribing) {
                 Spacer(Modifier.height(8.dp))
                 VoiceStatus(vm)
             }
@@ -211,6 +218,7 @@ fun TrainingScreen(vm: AppViewModel, session: TrainingSession, modifier: Modifie
 }
 
 /** Blind: the field for a move in words, and help without looking. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun BlindPanel(vm: AppViewModel, session: TrainingSession) {
     val attempt = session.attempt ?: return
@@ -218,8 +226,9 @@ private fun BlindPanel(vm: AppViewModel, session: TrainingSession) {
         VoiceField(vm)
         Spacer(Modifier.height(6.dp))
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (!attempt.finished) OutlinedButton(onClick = vm::hint) { Text("💡 Lösung") }
         OutlinedButton(onClick = vm::peek, enabled = !attempt.finished) { Text(if (vm.peeking) "Brett verdecken" else "Brett aufdecken") }
+        SpeakToggle(vm)
     }
 }

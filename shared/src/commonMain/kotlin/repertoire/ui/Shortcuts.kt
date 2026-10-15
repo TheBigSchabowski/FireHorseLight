@@ -127,6 +127,7 @@ enum class Command(val key: Char, val label: String, val holdSteps: Int?) {
     PASTE_FEN('f', "FEN einfügen", 4),
     BLIND('m', "Blind an/aus: Brett verdeckt, die Gegenseite wird angesagt", 1),
     PEEK('n', "Blind: Brett kurz aufdecken / wieder verdecken", null),
+    GRAPH('g', "Graph: welche Aufnahme für welchen Zug steht", null),
     PLAY('a', "Variante abspielen / anhalten", null),
     EXPLORER('l', "lichess-Eröffnungsdatenbank zur Stellung auf dem Brett", null),
     ENGINE('r', "Engine rechnet die Stellung auf dem Brett (am Computer)", null),
@@ -374,6 +375,7 @@ internal val Command.short: String get() = when (this) {
     Command.SHORTCUTS -> "Liste"
     Command.BLIND -> "Blind"
     Command.PEEK -> "Aufdecken"
+    Command.GRAPH -> "Graph"
     Command.NEW_VARIANT -> "Variante"
     Command.PASTE_PGN -> "PGN"
     Command.PASTE_FEN -> "FEN"

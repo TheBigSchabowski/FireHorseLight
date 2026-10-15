@@ -238,6 +238,9 @@ val ENGINE_HASH_MB = 16..65536
 /** Threads: one up to the cores of this computer, or more if an engine already had more set. */
 fun engineThreads(current: Int = 1): IntRange = 1..maxOf(processorCount(), current)
 
+/** A recording ([name], to play or move) and the phrase it stands for. */
+data class VoiceLink(val name: String, val phrase: String)
+
 /** Space pressed for less than this is a tap, not speech. */
 const val TAP_MS = 350
 
@@ -366,6 +369,10 @@ class AppViewModel(
                 prefs = null
             }
             Command.BLIND -> toggleBlind()
+            Command.GRAPH -> {
+                graphPicked = null
+                graphOpen = !graphOpen
+            }
             Command.PEEK -> peek()
             Command.EXPLORER -> explorerOpen = !explorerOpen
             Command.ENGINE -> engineOpen = !engineOpen
@@ -1521,7 +1528,10 @@ class AppViewModel(
         }
     }
 
-    fun setSpeakMoves(on: Boolean) = updateLibrary { it.copy(settings = it.settings.copy(speakMoves = on)) }
+    fun setSpeakMoves(on: Boolean) {
+        updateLibrary { it.copy(settings = it.settings.copy(speakMoves = on)) }
+        if (!on) speaker.stop()
+    }
 
     /** Ctrl+B n: a look at the covered board, or covered again. */
     fun peek() {
@@ -1649,7 +1659,7 @@ class AppViewModel(
         }
         speaker.stop()
         if (!v.start()) {
-            flash = "Das Mikrofon lässt sich nicht öffnen."
+            flash = "Das Mikrofon lässt sich nicht öffnen – ist es erlaubt?"
             return true
         }
         listeningSince = currentTimeMillis()
@@ -1776,6 +1786,58 @@ class AppViewModel(
         if (editor != null) editorPlay(move) else submitMove(move)
     }
 
+    // ---- The graph (Ctrl+B g): which recording stands for which move ----
+
+    /** The graph of recordings and moves is open. */
+    var graphOpen by mutableStateOf(false)
+
+    /** Bumped when a recording is moved or deleted, so the graph reads them again. */
+    var graphRevision by mutableIntStateOf(0)
+        private set
+
+    /** The recording picked by a tap, waiting for the tap on its move. */
+    var graphPicked by mutableStateOf<String?>(null)
+
+    /** Every recording and the phrase (move or command) it stands for. */
+    fun voiceLinks(): List<VoiceLink> = voice?.list(SPEECH_TEST_DIR).orEmpty()
+        .filter { it.endsWith(".wav") && it.count { c -> c == '/' } == 2 }
+        .map { VoiceLink(it, it.split('/')[1]) }
+        .sortedWith(compareBy({ it.phrase }, { it.name }))
+
+    /** What recordings can stand for: those that have some, the moves of the own variants and the commands. */
+    fun graphPhrases(links: List<VoiceLink>): List<String> = (links.map { it.phrase } + SpeechTest.phrases(library.active)).distinct()
+
+    /** The recording [name] stands for [phrase] from now on. */
+    fun relink(name: String, phrase: String) {
+        val v = voice ?: return
+        graphPicked = null
+        if (name.split('/').getOrNull(1) == phrase) return
+        val wav = v.read(name) ?: return
+        v.delete(name)
+        saveTemplate(phrase, wav)
+        graphRevision++
+        flash = "Die Aufnahme gilt jetzt als „$phrase“."
+    }
+
+    /** A move typed as the target of a recording: "Qh5" or "queen h5" → "queen h5". */
+    fun phraseFor(typed: String): String? {
+        val t = typed.trim()
+        if (t.isEmpty()) return null
+        return if (Regex("[NBRQK]?[a-h]?[1-8]?x?[a-h][1-8](=[QRBN])?|O-O(-O)?").matches(t)) SpeechTest.phrase(t) else t.lowercase()
+    }
+
+    fun deleteRecording(name: String) {
+        voice?.delete(name)
+        if (graphPicked == name) graphPicked = null
+        templates = null
+        recordedPhrases = countRecorded()
+        graphRevision++
+    }
+
+    fun playRecording(name: String) {
+        voice?.play(name)
+    }
+
     /**
      * „Falsch erkannt“: the last recording was not that move. Its link to it goes, in the editor
      * the move is taken back, and the next move played or typed gets the recording.
@@ -1800,7 +1862,16 @@ class AppViewModel(
      */
     fun onSpoken(transcript: String, bySound: Boolean = false, recording: ByteArray? = null) {
         val text = transcript.trim()
-        if (text.isEmpty()) return
+        if (text.isEmpty()) {
+            // Nothing written down (no Whisper on the phone): the recording waits for the move it meant.
+            if (recording != null && (editor != null || session?.attempt?.finished == false)) {
+                pendingRecording = recording
+                heard = null
+                canCorrect = false
+                flash = "Noch nicht erkannt – zieh oder tipp den gemeinten Zug, dann kenne ich ihn."
+            }
+            return
+        }
         heard = if (bySound) "$text (am Klang erkannt)" else text
         canCorrect = false
         // What the training taught comes first: "night of free" was "knight f3".
@@ -1878,7 +1949,7 @@ class AppViewModel(
     }
 
     private fun askPhrase(lab: VoiceLab) {
-        if (lab.sample) return
+        if (lab.sample || !library.settings.speakMoves) return
         lab.phrases.getOrNull(lab.index)?.let {
             speaker.stop()
             speaker.say(SpeechTest.speech(it))

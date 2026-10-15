@@ -28,6 +28,18 @@ object AudioMatch {
     private const val MELS = 26
     private const val COEFFS = 13
 
+    /** A WAV file (16 kHz, 16 bit, mono) around raw little-endian samples. */
+    fun wav(pcm: ByteArray): ByteArray {
+        val out = ByteArray(44 + pcm.size)
+        fun put(at: Int, text: String) = text.encodeToByteArray().copyInto(out, at)
+        fun int(at: Int, v: Int, bytes: Int) = repeat(bytes) { out[at + it] = (v shr (8 * it)).toByte() }
+        put(0, "RIFF"); int(4, 36 + pcm.size, 4); put(8, "WAVE"); put(12, "fmt ")
+        int(16, 16, 4); int(20, 1, 2); int(22, 1, 2); int(24, RATE, 4); int(28, RATE * 2, 4); int(32, 2, 2); int(34, 16, 2)
+        put(36, "data"); int(40, pcm.size, 4)
+        pcm.copyInto(out, 44)
+        return out
+    }
+
     /** The 16-bit samples of a WAV file (16 kHz, mono), without its 44-byte header. */
     fun samples(wav: ByteArray): ShortArray {
         val start = if (wav.size > 44 && wav[0] == 'R'.code.toByte() && wav[1] == 'I'.code.toByte()) 44 else 0

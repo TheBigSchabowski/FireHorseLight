@@ -2,7 +2,10 @@ package repertoire.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -60,7 +64,7 @@ private val GOOD = Color(0xFF7BC67B)
  * again). A double tap uncovers it (as do Ctrl+B n and "board").
  */
 @Composable
-fun CoveredBoard(vm: AppViewModel, position: Position, modifier: Modifier = Modifier) {
+fun CoveredBoard(vm: AppViewModel, position: Position, lastPlayed: String?, modifier: Modifier = Modifier) {
     val touch = LocalTouch.current
     Box(
         modifier
@@ -80,6 +84,11 @@ fun CoveredBoard(vm: AppViewModel, position: Position, modifier: Modifier = Modi
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
+            // Without the announcements the last move has to be read: it is not heard any more.
+            if (!vm.library.settings.speakMoves && lastPlayed != null) {
+                Spacer(Modifier.height(16.dp))
+                Text("Gespielt: $lastPlayed", color = Color.White, fontSize = 36.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            }
             Spacer(Modifier.height(24.dp))
             VoiceStatus(vm, center = true)
             Spacer(Modifier.height(16.dp))
@@ -87,7 +96,8 @@ fun CoveredBoard(vm: AppViewModel, position: Position, modifier: Modifier = Modi
                 if (touch) {
                     "Zug ins Feld unten diktieren · zweimal tippen deckt das Brett auf"
                 } else {
-                    "Leertaste halten und den Zug sagen · „repeat“ wiederholt die letzte Ansage · zweimal klicken oder ${vm.library.settings.shortcutLabel(Command.PEEK)} deckt auf"
+                    "Leertaste halten und den Zug sagen" + (if (vm.library.settings.speakMoves) " · „repeat“ wiederholt die letzte Ansage" else "") +
+                        " · zweimal klicken oder ${vm.library.settings.shortcutLabel(Command.PEEK)} deckt auf"
                 },
                 color = Color(0xFF8A8A8A),
                 style = MaterialTheme.typography.bodySmall,
@@ -126,6 +136,7 @@ fun VoiceField(vm: AppViewModel, modifier: Modifier = Modifier) {
         vm.onSpoken(text)
         text = ""
     }
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
     OutlinedTextField(
         value = text,
         onValueChange = { typed ->
@@ -141,7 +152,7 @@ fun VoiceField(vm: AppViewModel, modifier: Modifier = Modifier) {
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
         keyboardActions = KeyboardActions(onSend = { send() }),
-        modifier = modifier.typing(vm).fillMaxWidth().onPreviewKeyEvent { event ->
+        modifier = Modifier.weight(1f).typing(vm).onPreviewKeyEvent { event ->
             when {
                 event.key == Key.Enter || event.key == Key.NumPadEnter -> (event.type == KeyEventType.KeyDown).also { if (it) send() }
                 event.key != Key.Spacebar || vm.voice == null -> false
@@ -151,6 +162,9 @@ fun VoiceField(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         },
     )
+        Spacer(Modifier.width(8.dp))
+        HoldToTalk(vm)
+    }
 }
 
 /** The speech test and the voice sample: hold Space, say what is shown, let go. */
@@ -189,7 +203,11 @@ private fun SpeechTestPage(vm: AppViewModel, lab: VoiceLab) {
     Spacer(Modifier.height(16.dp))
     // The one thing to know, big: unlike a button, Space is held while speaking.
     Text(
-        if (vm.listening) "🎙 Ich höre … jetzt loslassen, wenn du fertig bist" else "Leertaste gedrückt HALTEN, sprechen, dann loslassen",
+        when {
+            vm.listening -> "🎙 Ich höre … jetzt loslassen, wenn du fertig bist"
+            LocalTouch.current -> "🎙-Knopf gedrückt HALTEN, sprechen, dann loslassen"
+            else -> "Leertaste (oder 🎙) gedrückt HALTEN, sprechen, dann loslassen"
+        },
         style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.Bold,
         color = if (vm.listening) LISTEN else INFO,
@@ -205,7 +223,8 @@ private fun SpeechTestPage(vm: AppViewModel, lab: VoiceLab) {
         Spacer(Modifier.height(8.dp))
         if (vm.transcribing) VoiceStatus(vm)
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            HoldToTalk(vm)
             OutlinedButton(onClick = { vm.speechTestStep(-1) }, enabled = lab.index > 0) { Text("←") }
             OutlinedButton(onClick = vm::askPhrase) { Text("🔊 Nochmal vorsagen") }
             OutlinedButton(onClick = { vm.speechTestStep(1) }) { Text("Überspringen →") }
@@ -249,6 +268,8 @@ private fun VoiceSample(vm: AppViewModel, lab: VoiceLab) {
         modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)).padding(20.dp),
     )
     Spacer(Modifier.height(12.dp))
+    HoldToTalk(vm)
+    Spacer(Modifier.height(8.dp))
     VoiceStatus(vm)
     lab.saved?.let {
         Spacer(Modifier.height(8.dp))
@@ -258,5 +279,37 @@ private fun VoiceSample(vm: AppViewModel, lab: VoiceLab) {
     if (vm.listening) {
         Spacer(Modifier.height(8.dp))
         Button(onClick = {}, enabled = false) { Text("● Aufnahme läuft") }
+    }
+}
+
+/** The announcements on or off, right where they are heard. */
+@Composable
+fun SpeakToggle(vm: AppViewModel) {
+    val on = vm.library.settings.speakMoves
+    OutlinedButton(onClick = { vm.setSpeakMoves(!on) }) { Text(if (on) "🔊 Ansage an" else "🔇 Ansage aus") }
+}
+
+/**
+ * The microphone button: held down it records, let go the move is recognized – like Space on the
+ * computer, and the way to speak on a phone. A short tap does nothing.
+ */
+@Composable
+fun HoldToTalk(vm: AppViewModel, modifier: Modifier = Modifier) {
+    if (vm.voice == null) return
+    Box(
+        modifier
+            .background(if (vm.listening) LISTEN else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(50))
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown().consume()
+                    vm.voiceDown()
+                    waitForUpOrCancellation()
+                    vm.voiceUp()
+                }
+            }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(if (vm.listening) "🎙 loslassen" else "🎙 halten", fontWeight = FontWeight.SemiBold)
     }
 }

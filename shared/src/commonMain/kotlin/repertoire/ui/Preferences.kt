@@ -154,12 +154,21 @@ private fun ConfigPage(vm: AppViewModel, touch: Boolean, scrollTo: suspend (Layo
         val voice = vm.voice
         if (voice != null) {
             Spacer(Modifier.height(8.dp))
-            Text("Sprechen mit der Leertaste")
-            Hint(remember(voice) { voice.problem() } ?: "Bereit: Leertaste halten, Zug auf Englisch sagen, loslassen. Erkannt wird mit voxtype.")
+            Text(if (touch) "Sprechen mit dem 🎙-Knopf" else "Sprechen mit der Leertaste")
+            Hint(
+                remember(voice) { voice.problem() } ?: if (touch) {
+                    "🎙 halten, Zug sagen, loslassen. Erkannt wird am Klang deiner Aufnahmen; was noch unbekannt ist, verbindest du mit dem Zug, den du dann ziehst."
+                } else {
+                    "Leertaste (oder 🎙) halten, Zug sagen, loslassen. Erkannt wird am Klang deiner Aufnahmen" +
+                        if (voice.canWriteDown) ", sonst mit voxtype (Whisper)." else "; was noch unbekannt ist, verbindest du mit dem Zug, den du dann ziehst. " +
+                            "Mit voxtype (am Mac: brew install --cask voxtype) wird auch Unbekanntes aufgeschrieben."
+                },
+            )
             Spacer(Modifier.height(6.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = vm::openSpeechTest) { Text("Züge einsprechen") }
                 OutlinedButton(onClick = vm::openVoiceSample) { Text("Stimmprobe aufnehmen") }
+                OutlinedButton(onClick = { vm.run(Command.GRAPH) }) { Text("Graph: Klang ↔ Zug") }
             }
         } else {
             Spacer(Modifier.height(4.dp))
@@ -660,11 +669,19 @@ private fun HelpPage(vm: AppViewModel, prefs: Prefs.Help, touch: Boolean) {
             Bullet("Am Ende", "wird das Brett aufgedeckt: „Correct“ ohne Fehler, sonst „Done“.")
             Bullet("Aufdecken", (if (touch) "zweimal aufs verdeckte Brett tippen" else "${settings.shortcutLabel(Command.PEEK)} oder zweimal klicken") + " zeigt das Brett kurz, nochmal verdeckt es wieder. Mit der nächsten Variante ist es wieder zu.")
             Bullet("Abspielen", "im Editor sagt der Player die Züge an, statt sie zu zeigen.")
+            Bullet("Ansage", "„🔊 Ansage an/aus“ beim Üben (oder hier in der Konfiguration): ohne Ansage steht der zuletzt gespielte Zug groß auf dem verdeckten Brett.")
             SubHeading("Züge sagen")
             if (vm.voice != null) {
                 Para(
-                    "Leertaste halten, den Zug auf Englisch sagen, loslassen: voxtype schreibt auf, was du gesagt hast, und der Zug wird gespielt – beim Üben wie im Editor, " +
-                        "auch ohne Blind. Kurz antippen bleibt „Gut“ / „Weiter“. In einem Textfeld tippt die Leertaste wie immer, außer im leeren Zugfeld.",
+                    (if (touch) "Den 🎙-Knopf halten" else "Leertaste (oder den 🎙-Knopf) halten") + ", den Zug sagen, loslassen – beim Üben wie im Editor, auch ohne Blind. " +
+                        "Erkannt wird am Klang deiner eigenen Aufnahmen; was die App noch nicht kennt, schreibt am Computer voxtype (Whisper) auf. " +
+                        if (touch) "" else "Kurz antippen bleibt „Gut“ / „Weiter“. In einem Textfeld tippt die Leertaste wie immer, außer im leeren Zugfeld.",
+                )
+                Bullet(
+                    "Graph" + if (touch) "" else " (${settings.shortcutLabel(Command.GRAPH)})",
+                    "links deine Aufnahmen, rechts die Züge, dazwischen Linien. " +
+                        (if (touch) "Aufnahme antippen, dann den Zug" else "Eine Aufnahme auf einen anderen Zug ziehen (oder anklicken, dann den Zug)") +
+                        " verbindet sie neu; ▶ spielt sie ab, ✕ löscht sie.",
                 )
             }
             Para("Das Feld unter dem Brett nimmt einen Zug auch getippt oder diktiert (voxtypes eigene Taste, am Handy das Mikrofon der Tastatur); Enter spielt ihn.")

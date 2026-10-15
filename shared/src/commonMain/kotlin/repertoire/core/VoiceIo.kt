@@ -18,8 +18,11 @@ expect fun createSpeaker(): Speaker
  * voxtype; on a phone the keyboard's dictation types into the field instead, so there is none.
  */
 interface VoiceInput {
-    /** Why it does not work here (no voxtype, no microphone), null if it does. */
+    /** Why recording does not work here (no microphone), null if it does. */
     fun problem(): String?
+
+    /** Whisper is there to write down what is not known by sound yet; without it, only the own recordings recognize. */
+    val canWriteDown: Boolean
 
     /** Starts recording; false if it cannot. */
     fun start(): Boolean
@@ -38,6 +41,9 @@ interface VoiceInput {
 
     /** Everything kept under the folder [dir], as names to [read] ("Spracherkennung/knight f3/1.wav"). */
     fun list(dir: String): List<String>
+
+    /** Plays the recording kept as [name]. */
+    fun play(name: String)
 
     /** Throws away what was kept as [name]. */
     fun delete(name: String)
